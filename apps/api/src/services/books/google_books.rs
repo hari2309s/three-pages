@@ -87,13 +87,14 @@ impl GoogleBooksService {
 
     fn convert_to_book(&self, item: BookItem) -> Book {
         let volume = item.volume_info;
+        let isbn = volume.extract_isbn();
 
         Book {
             id: format!("google:{}", item.id),
             title: volume.title,
             authors: volume.authors,
             description: volume.description,
-            isbn: volume.extract_isbn(),
+            isbn,
             publisher: volume.publisher,
             published_date: volume.published_date,
             page_count: volume.page_count,

@@ -1,86 +1,37 @@
-# Rust specific
-**/target/
-**/*.rs.bk
-*.pdb
-Cargo.lock
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
 
-# Configuration files with sensitive API keys
-/apps/api/config/*.toml
-!/apps/api/config/base.toml
-!/apps/api/config/*.toml.example
+# Build outputs
+dist/
+build/
+.next/
+out/
+target/
 
-# IDE and editor files
+# Environment
+.env
+.env*.local
+
+# IDE
+.vscode/
 .idea/
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
 *.swp
 *.swo
-*~
 
-# Node.js dependencies
-**/node_modules/
-.pnpm-store/
-.pnpm-debug.log
-
-# Turborepo cache
-.turbo/
-.cache/
-
-# Build output
-**/dist/
-**/build/
-**/.next/
-**/out/
-
-# Environment files
-.env
-.env.local
-.env.*.local
-.env.development
-.env.test
-.env.production
-*.env
-
-# Debug logs
-**/*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# OS specific
+# OS
 .DS_Store
 Thumbs.db
 
-# Optional: Package manager lock files if using workspace root
-**/package-lock.json
-**/yarn.lock
-**/pnpm-lock.yaml
+# Turborepo
+.turbo/
 
-# Binary files
-*.exe
-*.dll
-*.so
-*.dylib
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
 
-# Rust profiling and debugging
-*.profile
-flamegraph.svg
-perf.data
-perf.data.old
-
-# Database
-*.sqlite
-*.sqlite3
-*.db
-
-# Backup files
-*.bak
-*.backup
-*.old
-
-# Test coverage
+# Testing
 coverage/
 .nyc_output/

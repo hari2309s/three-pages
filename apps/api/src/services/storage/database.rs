@@ -1,0 +1,152 @@
+use sqlx::{PgPool, postgres::PgPoolOptions};
+use uuid::Uuid;
+
+use crate::{
+    models::{AudioFile, CreateAudioFile, CreateSummary, Summary},
+    utils::errors::{AppError, Result},
+};
+
+#[derive(Clone)]
+pub struct DatabaseService {
+    pool: PgPool,
+}
+
+impl DatabaseService {
+    pub async fn new(database_url: &str, max_connections: u32) -> Result<Self> {
+        let pool = PgPoolOptions::new()
+            .max_connections(max_connections)
+            .connect(database_url)
+            .await?;
+
+        Ok(Self { pool })
+    }
+
+    pub async fn run_migrations(&self) -> Result<()> {
+        sqlx::migrate!("./migrations").run(&self.pool).await?;
+        Ok(())
+    }
+
+    pub async fn create_summary(&self, summary: CreateSummary) -> Result<Summary> {
+        let id = Uuid::new_v4();
+
+        let record = sqlx::query_as::<_, Summary>(
+            r#"
+            INSERT INTO summaries (
+                id, book_id, book_title, book_author, isbn, language,
+                summary_text, word_count, style, source_hash
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            RETURNING *
+            "#,
+        )
+        .bind(id)
+        .bind(&summary.book_id)
+        .bind(&summary.book_title)
+        .bind(&summary.book_author)
+        .bind(&summary.isbn)
+        .bind(&summary.language)
+        .bind(&summary.summary_text)
+        .bind(summary.word_count)
+        .bind(&summary.style)
+        .bind(&summary.source_hash)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(record)
+    }
+
+    pub async fn get_summary_by_book(
+        &self,
+        book_id: &str,
+        language: &str,
+        style: &str,
+    ) -> Result<Option<Summary>> {
+        let record = sqlx::query_as::<_, Summary>(
+            r#"
+            SELECT * FROM summaries
+            WHERE book_id = $1 AND language = $2 AND style = $3
+            ORDER BY created_at DESC
+            LIMIT 1
+            "#,
+        )
+        .bind(book_id)
+        .bind(language)
+        .bind(style)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(record)
+    }
+
+    pub async fn get_summary_by_id(&self, id: Uuid) -> Result<Option<Summary>> {
+        let record = sqlx::query_as::<_, Summary>(
+            r#"
+            SELECT * FROM summaries WHERE id = $1
+            "#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(record)
+    }
+
+    pub async fn create_audio_file(&self, audio: CreateAudioFile) -> Result<AudioFile> {
+        let id = Uuid::new_v4();
+
+        let record = sqlx::query_as::<_, AudioFile>(
+            r#"
+            INSERT INTO audio_files (
+                id, summary_id, language, voice_type, file_url, duration_ms, file_size_kb
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING *
+            "#,
+        )
+        .bind(id)
+        .bind(audio.summary_id)
+        .bind(&audio.language)
+        .bind(&audio.voice_type)
+        .bind(&audio.file_url)
+        .bind(audio.duration_ms)
+        .bind(audio.file_size_kb)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(record)
+    }
+
+    pub async fn get_audio_by_summary(
+        &self,
+        summary_id: Uuid,
+        language: &str,
+    ) -> Result<Option<AudioFile>> {
+        let record = sqlx::query_as::<_, AudioFile>(
+            r#"
+            SELECT * FROM audio_files
+            WHERE summary_id = $1 AND language = $2
+            ORDER BY created_at DESC
+            LIMIT 1
+            "#,
+        )
+        .bind(summary_id)
+        .bind(language)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(record)
+    }
+
+    pub async fn get_audio_by_id(&self, id: Uuid) -> Result<Option<AudioFile>> {
+        let record = sqlx::query_as::<_, AudioFile>(
+            r#"
+            SELECT * FROM audio_files WHERE id = $1
+            "#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(record)
+    }
+}

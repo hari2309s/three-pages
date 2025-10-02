@@ -6,7 +6,7 @@ mod services;
 mod utils;
 
 use anyhow::Result;
-use axum::Router;
+
 use std::net::SocketAddr;
 use tower_http::{compression::CompressionLayer, trace::TraceLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};

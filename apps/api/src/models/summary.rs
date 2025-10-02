@@ -5,16 +5,23 @@ use uuid::Uuid;
 
 #[derive(Debug, Deserialize)]
 pub struct SummaryRequest {
+    pub book_id: String,
+    #[serde(default = "default_language")]
     pub language: String,
     #[serde(default = "default_style")]
     pub style: String,
+    pub max_pages: Option<usize>,
 }
 
 fn default_style() -> String {
     "concise".to_string()
 }
 
-#[derive(Debug, Serialize)]
+fn default_language() -> String {
+    "en".to_string()
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SummaryResponse {
     pub id: Uuid,
     pub summary_text: String,
@@ -24,7 +31,7 @@ pub struct SummaryResponse {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct BookInfo {
     pub title: String,
     pub author: String,

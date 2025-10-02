@@ -1,7 +1,7 @@
 use axum::{
-    Json,
     http::StatusCode,
     response::{IntoResponse, Response},
+    Json,
 };
 use serde_json::json;
 use thiserror::Error;
@@ -10,6 +10,9 @@ use thiserror::Error;
 pub enum AppError {
     #[error("Database error: {0}")]
     Database(#[from] sqlx::Error),
+
+    #[error("Migration error: {0}")]
+    Migration(#[from] sqlx::migrate::MigrateError),
 
     #[error("HTTP request error: {0}")]
     HttpRequest(#[from] reqwest::Error),
@@ -51,7 +54,7 @@ impl IntoResponse for AppError {
             AppError::InvalidInput(_) => (StatusCode::BAD_REQUEST, self.to_string()),
             AppError::RateLimit => (StatusCode::TOO_MANY_REQUESTS, self.to_string()),
             AppError::ContentTooLarge => (StatusCode::PAYLOAD_TOO_LARGE, self.to_string()),
-            AppError::Database(_) | AppError::Internal(_) => {
+            AppError::Database(_) | AppError::Migration(_) | AppError::Internal(_) => {
                 tracing::error!("Internal error: {}", self);
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,

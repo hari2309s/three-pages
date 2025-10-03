@@ -5,6 +5,7 @@ A full-stack application that uses AI to generate multilingual book summaries wi
 ## Tech Stack
 
 ### Backend
+
 - **Language**: Rust
 - **Framework**: Axum 0.7
 - **Database**: PostgreSQL (SQLx)
@@ -13,6 +14,7 @@ A full-stack application that uses AI to generate multilingual book summaries wi
 - **Deployment**: Render
 
 ### Frontend
+
 - **Framework**: React 18 + TypeScript
 - **Build Tool**: Vite
 - **Styling**: TailwindCSS

@@ -1,17 +1,19 @@
 {
   "name": "three-pages",
   "version": "1.0.0",
+  "author": "Hariharan Selvaraj",
   "private": true,
   "description": "Any book. Three pages. Any language.",
   "scripts": {
-    "dev": "turbo run dev",
-    "build": "turbo run build",
-    "lint": "turbo run lint",
-    "test": "turbo run test",
+    "dev:web": "cd apps/web && pnpm dev",
+    "dev:api": "cd apps/api && cargo run",
+    "build:web": "cd apps/web && pnpm build",
+    "build:api": "cd apps/api && cargo build --release",
+    "install:web": "cd apps/web && pnpm install",
+    "lint:web": "cd apps/web && pnpm lint",
+    "test:api": "cd apps/api && cargo test",
     "clean": "turbo run clean && rm -rf node_modules",
-    "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
-    "web": "turbo run dev --filter=web",
-    "api": "cd apps/api && cargo run"
+    "format": "prettier --write \"**/*.{ts,tsx,md,json}\""
   },
   "devDependencies": {
     "turbo": "^2.0.0",

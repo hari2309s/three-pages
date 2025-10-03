@@ -68,11 +68,13 @@ The API will start on `http://localhost:10000`
 ## API Endpoints
 
 ### Health Check
+
 ```
 GET /api/health
 ```
 
 ### Search Books
+
 ```
 POST /api/search
 Content-Type: application/json
@@ -84,11 +86,13 @@ Content-Type: application/json
 ```
 
 ### Get Book Details
+
 ```
 GET /api/books/:id
 ```
 
 ### Generate Summary
+
 ```
 POST /api/books/:id/summary
 Content-Type: application/json
@@ -100,25 +104,26 @@ Content-Type: application/json
 ```
 
 ### Get Audio
+
 ```
 GET /api/summary/:id/audio?language=en&voice_type=default
 ```
 
 ## Environment Variables
 
-| Variable | Description | Required | Default |
-|----------|-------------|----------|---------|
-| `PORT` | Server port | No | 10000 |
-| `ENVIRONMENT` | Environment (development/production) | No | development |
-| `DATABASE_URL` | PostgreSQL connection string | Yes | - |
-| `DATABASE_POOL_SIZE` | Database connection pool size | No | 5 |
-| `HF_TOKEN` | Hugging Face API token | Yes | - |
-| `HF_API_BASE_URL` | Hugging Face API base URL | No | https://api-inference.huggingface.co |
-| `GOOGLE_BOOKS_API_KEY` | Google Books API key (optional) | No | - |
-| `GUTENBERG_API_BASE` | Project Gutenberg API base URL | No | https://gutendex.com |
-| `CACHE_TTL_SECONDS` | Cache TTL in seconds | No | 3600 |
-| `CACHE_MAX_CAPACITY` | Maximum cache entries | No | 1000 |
-| `ALLOWED_ORIGINS` | CORS allowed origins (comma-separated) | No | localhost:5173,localhost:3000 |
+| Variable               | Description                            | Required | Default                              |
+| ---------------------- | -------------------------------------- | -------- | ------------------------------------ |
+| `PORT`                 | Server port                            | No       | 10000                                |
+| `ENVIRONMENT`          | Environment (development/production)   | No       | development                          |
+| `DATABASE_URL`         | PostgreSQL connection string           | Yes      | -                                    |
+| `DATABASE_POOL_SIZE`   | Database connection pool size          | No       | 5                                    |
+| `HF_TOKEN`             | Hugging Face API token                 | Yes      | -                                    |
+| `HF_API_BASE_URL`      | Hugging Face API base URL              | No       | https://api-inference.huggingface.co |
+| `GOOGLE_BOOKS_API_KEY` | Google Books API key (optional)        | No       | -                                    |
+| `GUTENBERG_API_BASE`   | Project Gutenberg API base URL         | No       | https://gutendex.com                 |
+| `CACHE_TTL_SECONDS`    | Cache TTL in seconds                   | No       | 3600                                 |
+| `CACHE_MAX_CAPACITY`   | Maximum cache entries                  | No       | 1000                                 |
+| `ALLOWED_ORIGINS`      | CORS allowed origins (comma-separated) | No       | localhost:5173,localhost:3000        |
 
 ## Project Structure
 
@@ -249,6 +254,7 @@ psql $DATABASE_URL
 ## Support
 
 For issues and questions:
+
 - Open an issue on GitHub
 - Check existing documentation
 - Review logs for error details

@@ -3,6 +3,7 @@ use sha2::{Digest, Sha256};
 const MAX_CHUNK_SIZE: usize = 4000;
 const OVERLAP_SIZE: usize = 200;
 
+#[allow(dead_code)]
 pub fn chunk_text(text: &str, max_size: usize) -> Vec<String> {
     let words: Vec<&str> = text.split_whitespace().collect();
     let mut chunks = Vec::new();

@@ -79,16 +79,18 @@ impl Settings {
 
         let environment = env::var("ENVIRONMENT").unwrap_or_else(|_| default_environment());
 
-        let database_url = env::var("DATABASE_URL").context("DATABASE_URL must be set")?;
+        let database_url = env::var("APP_SUPABASE_URL").context("APP_SUPABASE_URL must be set")?;
 
         let database_pool_size = env::var("DATABASE_POOL_SIZE")
             .ok()
             .and_then(|p| p.parse().ok())
             .unwrap_or_else(default_pool_size);
 
-        let hf_token = env::var("HF_TOKEN").context("HF_TOKEN must be set")?;
+        let hf_token =
+            env::var("APP_HUGGINGFACE_API_KEY").context("APP_HUGGINGFACE_API_KEY must be set")?;
 
-        let hf_api_base_url = env::var("HF_API_BASE_URL").unwrap_or_else(|_| default_hf_base_url());
+        let hf_api_base_url =
+            env::var("APP_HUGGINGFACE_API_BASE_URL").unwrap_or_else(|_| default_hf_base_url());
 
         let google_books_api_key = env::var("GOOGLE_BOOKS_API_KEY").ok();
 

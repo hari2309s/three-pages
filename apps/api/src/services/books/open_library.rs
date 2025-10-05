@@ -30,6 +30,8 @@ struct OpenLibraryDoc {
     cover_i: Option<i64>,
     #[serde(default)]
     subject: Vec<String>,
+    #[serde(default)]
+    ia: Vec<String>, // Internet Archive identifiers
 }
 
 pub struct OpenLibraryService {
@@ -87,6 +89,42 @@ impl OpenLibraryService {
         Ok(Some(self.convert_to_book(doc)))
     }
 
+    pub async fn get_content(&self, _id: &str, ia_identifier: &str) -> Result<String> {
+        // Try to get content from Internet Archive
+        // Format: https://archive.org/download/{identifier}/{identifier}.txt
+        let url = format!(
+            "https://archive.org/download/{}/{}.txt",
+            ia_identifier, ia_identifier
+        );
+
+        tracing::info!("Attempting to fetch content from Internet Archive: {}", url);
+
+        let response = self.client.get(&url).send().await?;
+
+        if !response.status().is_success() {
+            // Try alternative format with _djvu.txt
+            let alt_url = format!(
+                "https://archive.org/download/{}/{}_djvu.txt",
+                ia_identifier, ia_identifier
+            );
+
+            tracing::info!("Trying alternative format: {}", alt_url);
+
+            let alt_response = self.client.get(&alt_url).send().await?;
+
+            if !alt_response.status().is_success() {
+                return Err(AppError::ExternalApi(format!(
+                    "Content not available from Internet Archive for {}",
+                    ia_identifier
+                )));
+            }
+
+            return Ok(alt_response.text().await?);
+        }
+
+        Ok(response.text().await?)
+    }
+
     fn convert_to_book(&self, doc: OpenLibraryDoc) -> Book {
         let cover_url = doc
             .cover_i
@@ -105,6 +143,9 @@ impl OpenLibraryService {
             None
         };
 
+        // Check if book has Internet Archive full text available
+        let has_ia_content = !doc.ia.is_empty();
+
         Book {
             id: format!("openlibrary:{}", doc.key),
             title: doc.title,
@@ -117,7 +158,27 @@ impl OpenLibraryService {
             language: doc.language.first().cloned(),
             cover_url,
             preview_link: Some(format!("https://openlibrary.org{}", doc.key)),
-            source: BookSource::OpenLibrary,
+            source: if has_ia_content {
+                // If it has IA content, we can treat it like a content source
+                BookSource::OpenLibrary
+            } else {
+                BookSource::OpenLibrary
+            },
         }
+    }
+
+    // Helper method to extract Internet Archive identifier from book
+    pub async fn get_ia_identifier(&self, openlibrary_key: &str) -> Result<Option<String>> {
+        let url = format!("https://openlibrary.org{}.json", openlibrary_key);
+
+        let response = self.client.get(&url).send().await?;
+
+        if !response.status().is_success() {
+            return Ok(None);
+        }
+
+        let doc: OpenLibraryDoc = response.json().await?;
+
+        Ok(doc.ia.first().cloned())
     }
 }

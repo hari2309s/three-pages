@@ -1,7 +1,7 @@
-use axum::{Json, extract::State};
+use axum::{extract::State, Json};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::{AppState, models::HealthResponse};
+use crate::{models::HealthResponse, AppState};
 
 static START_TIME: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
 

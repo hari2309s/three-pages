@@ -8,7 +8,7 @@ use crate::{
     services::books::{
         BookAggregatorService, GoogleBooksService, GutenbergService, OpenLibraryService,
     },
-    utils::errors::Result,
+    utils::errors::{AppError, Result},
     AppState,
 };
 
@@ -40,7 +40,10 @@ pub async fn get_book(
     let aggregator = BookAggregatorService::new(google_books, open_library, gutenberg);
 
     // Try to get book details from aggregator
-    let book_detail = aggregator.get_book_details(&book_id).await?;
+    let book_detail = aggregator
+        .get_book_details(&book_id)
+        .await?
+        .ok_or_else(|| AppError::BookNotFound(format!("Book with ID {} not found", book_id)))?;
 
     // Cache the result
     state.cache.set_json(cache_key, &book_detail).await;

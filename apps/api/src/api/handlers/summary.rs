@@ -8,7 +8,10 @@ use crate::{
         books::{BookAggregatorService, GoogleBooksService, GutenbergService, OpenLibraryService},
         huggingface::{HuggingFaceClient, SummarizerService},
     },
-    utils::{errors::Result, validators},
+    utils::{
+        errors::{AppError, Result},
+        validators,
+    },
     AppState,
 };
 
@@ -46,7 +49,12 @@ pub async fn generate_summary(
     let book_aggregator = BookAggregatorService::new(google_books, open_library, gutenberg);
 
     // Get book details
-    let book_detail = book_aggregator.get_book_details(&payload.book_id).await?;
+    let book_detail = book_aggregator
+        .get_book_details(&payload.book_id)
+        .await?
+        .ok_or_else(|| {
+            AppError::BookNotFound(format!("Book with ID {} not found", payload.book_id))
+        })?;
 
     // Initialize HuggingFace client for summarization
     let hf_client = HuggingFaceClient::new(

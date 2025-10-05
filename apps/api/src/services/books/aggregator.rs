@@ -1,3 +1,5 @@
+use futures::future::join_all;
+
 use crate::{
     models::{Book, BookDetail, BookSource},
     services::books::{GoogleBooksService, GutenbergService, OpenLibraryService},
@@ -55,14 +57,7 @@ impl BookAggregatorService {
         Ok(all_books)
     }
 
-    pub async fn get_book_details(&self, id: &str) -> Result<BookDetail> {
-        match self.get_book(id).await? {
-            Some(book_detail) => Ok(book_detail),
-            None => Err(AppError::BookNotFound(id.to_string())),
-        }
-    }
-
-    pub async fn get_book(&self, id: &str) -> Result<Option<BookDetail>> {
+    pub async fn get_book_details(&self, id: &str) -> Result<Option<BookDetail>> {
         let parts: Vec<&str> = id.split(':').collect();
         if parts.len() != 2 {
             return Err(AppError::InvalidInput("Invalid book ID format".to_string()));
@@ -98,27 +93,55 @@ impl BookAggregatorService {
 
         let (source, book_id) = (parts[0], parts[1]);
 
-        if source == "gutenberg" {
-            let gid: i32 = book_id
-                .parse()
-                .map_err(|_| AppError::InvalidInput("Invalid Gutenberg ID".to_string()))?;
-            self.gutenberg.get_content(gid).await
-        } else {
-            Err(AppError::InvalidInput(
-                "Content only available for Gutenberg books".to_string(),
-            ))
+        match source {
+            "gutenberg" => {
+                let gid: i32 = book_id
+                    .parse()
+                    .map_err(|_| AppError::InvalidInput("Invalid Gutenberg ID".to_string()))?;
+                self.gutenberg.get_content(gid).await
+            }
+            "openlibrary" => {
+                match self.open_library.get_ia_identifier(book_id).await? {
+                    Some(ia_id) => {
+                        self.open_library.get_content(book_id, &ia_id).await
+                    }
+                    None => {
+                        Err(AppError::ExternalApi(
+                            "This book does not have full text available on Internet Archive".to_string()
+                        ))
+                    }
+                }
+            }
+            _ => {
+                Err(AppError::InvalidInput(
+                    "Content only available for Gutenberg and Open Library books with Internet Archive copies".to_string()
+                ))
+            }
         }
     }
 
     async fn enrich_book_detail(&self, book: Book) -> BookDetail {
-        let content_url = if book.source == BookSource::Gutenberg {
-            let id = book.id.replace("gutenberg:", "");
-            Some(format!(
-                "https://www.gutenberg.org/files/{}/{}-0.txt",
-                id, id
-            ))
-        } else {
-            None
+        let content_url = match book.source {
+            BookSource::Gutenberg => {
+                let id = book.id.replace("gutenberg:", "");
+                Some(format!(
+                    "https://www.gutenberg.org/files/{}/{}-0.txt",
+                    id, id
+                ))
+            }
+            BookSource::OpenLibrary => {
+                // Try to get IA identifier
+                let ol_key = book.id.replace("openlibrary:", "");
+                if let Ok(Some(ia_id)) = self.open_library.get_ia_identifier(&ol_key).await {
+                    Some(format!(
+                        "https://archive.org/download/{}/{}.txt",
+                        ia_id, ia_id
+                    ))
+                } else {
+                    None
+                }
+            }
+            _ => None,
         };
 
         let gutenberg_id = if book.source == BookSource::Gutenberg {

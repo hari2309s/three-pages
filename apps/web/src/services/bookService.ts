@@ -1,4 +1,4 @@
-import api from "./api";
+import api from "@/services/api";
 import type { SearchRequest, SearchResponse, BookDetail } from "@/types";
 
 export const bookService = {
@@ -8,7 +8,9 @@ export const bookService = {
   },
 
   getById: async (id: string): Promise<BookDetail> => {
-    const { data } = await api.get<BookDetail>(`/api/books/${id}`);
+    // Encode the ID to handle special characters like colons
+    const encodedId = encodeURIComponent(id);
+    const { data } = await api.get<BookDetail>(`/api/books/${encodedId}`);
     return data;
   },
 

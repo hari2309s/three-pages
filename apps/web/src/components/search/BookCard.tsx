@@ -1,8 +1,14 @@
 import { Book as BookIcon } from "lucide-react";
-import { CardContent, CardFooter, CardHeader } from "../shared/Card";
-import { Button } from "../shared/Button";
+import {
+  Button,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  AnimatedCard,
+  AnimatedContainer,
+  AnimatedText,
+} from "@three-pages/ui";
 import { truncateText } from "@/lib/utils";
-import { AnimatedCard, AnimatedContainer, AnimatedText } from "../animated";
 import type { Book } from "@/types";
 
 interface BookCardProps {

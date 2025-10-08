@@ -1,8 +1,7 @@
 import { useState, FormEvent } from "react";
 import { Search } from "lucide-react";
 import { motion } from "framer-motion";
-import { Button } from "../shared/Button";
-import { AnimatedContainer, buttonVariants } from "../animated";
+import { Button, AnimatedContainer } from "@three-pages/ui";
 
 interface SearchBarProps {
   onSearch: (query: string) => void;
@@ -46,20 +45,9 @@ export const SearchBar = ({ onSearch, isLoading }: SearchBarProps) => {
               }}
             />
           </AnimatedContainer>
-          <motion.div
-            variants={buttonVariants}
-            initial="idle"
-            whileHover="hover"
-            whileTap="tap"
-          >
-            <Button
-              type="submit"
-              disabled={!query.trim() || isLoading}
-              size="lg"
-            >
-              Search
-            </Button>
-          </motion.div>
+          <Button type="submit" disabled={!query.trim() || isLoading} size="lg">
+            Search
+          </Button>
         </AnimatedContainer>
       </form>
     </AnimatedContainer>

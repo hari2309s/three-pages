@@ -1,13 +1,12 @@
 import { ReactNode } from "react";
-import { Header } from "./Header";
-import { Footer } from "./Footer";
-import { AnimatedContainer } from "../animated";
+import { Header } from "@/components/layout/Header";
+import { AnimatedContainer } from "@three-pages/ui";
 
 interface LayoutProps {
   children: ReactNode;
 }
 
-export const Layout = ({ children }: LayoutProps) => {
+const Layout = ({ children }: LayoutProps) => {
   return (
     <AnimatedContainer
       variant="container"
@@ -24,9 +23,8 @@ export const Layout = ({ children }: LayoutProps) => {
       >
         <main>{children}</main>
       </AnimatedContainer>
-      <AnimatedContainer variant="fade" delay={0.2}>
-        <Footer />
-      </AnimatedContainer>
     </AnimatedContainer>
   );
 };
+
+export default Layout;

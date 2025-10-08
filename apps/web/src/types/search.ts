@@ -1,4 +1,4 @@
-import { Book } from "./book";
+import { Book } from "@/types/book";
 
 export interface SearchRequest {
   query: string;

@@ -1,26 +1,21 @@
 import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AnimatePresence } from "framer-motion";
-import { Layout } from "./components/layout/Layout";
-import { SearchBar } from "./components/search/SearchBar";
-import { SearchResults } from "./components/search/SearchResults";
-import { BookDetail } from "./components/book/BookDetail";
-import { LanguageSelector } from "./components/summary/LanguageSelector";
-import { SummaryCard } from "./components/summary/SummaryCard";
-import { AudioPlayer } from "./components/audio/AudioPlayer";
-import { LoadingSpinner } from "./components/shared/LoadingSpinner";
-import { ErrorMessage } from "./components/shared/ErrorMessage";
-import { Button } from "./components/shared/Button";
-import { useBookSearch } from "./hooks/useBookSearch";
-import { useBookDetail } from "./hooks/useBookDetail";
-import { useSummary } from "./hooks/useSummary";
-import { useAudio } from "./hooks/useAudio";
+import Layout from "@/components/layout/Layout";
+import { SearchBar } from "@/components/search/SearchBar";
+import { SearchResults } from "@/components/search/SearchResults";
+import { BookDetail } from "@/components/book/BookDetail";
+import { LanguageSelector } from "@/components/summary/LanguageSelector";
+import { SummaryCard } from "@/components/summary/SummaryCard";
+import { AudioPlayer } from "@/components/audio/AudioPlayer";
+import { LoadingSpinner, ErrorMessage, Button } from "@three-pages/ui";
+import { useBookSearch, useAudio, useBookDetail, useSummary } from "@/hooks";
 import {
   AnimatedContainer,
   AnimatedText,
   PageTransition,
-} from "./components/animated";
-import type { Book } from "./types";
+} from "@three-pages/ui";
+import type { Book } from "@/types";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -244,12 +239,12 @@ function AppContent() {
   );
 }
 
-function App() {
+const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <AppContent />
     </QueryClientProvider>
   );
-}
+};
 
 export default App;

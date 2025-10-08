@@ -1,7 +1,13 @@
 import { Book as BookIcon, ExternalLink } from "lucide-react";
-import { CardContent, CardHeader, CardTitle } from "../shared/Card";
-import { Button } from "../shared/Button";
-import { AnimatedCard, AnimatedContainer, AnimatedText } from "../animated";
+import {
+  Button,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  AnimatedCard,
+  AnimatedContainer,
+  AnimatedText,
+} from "@three-pages/ui";
 import type { BookDetail as BookDetailType } from "@/types";
 
 interface BookDetailProps {

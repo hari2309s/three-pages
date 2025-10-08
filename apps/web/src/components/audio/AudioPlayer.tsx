@@ -1,6 +1,11 @@
 import { Play, Pause, Square } from "lucide-react";
-import { Button } from "../shared/Button";
-import { Card, CardContent, CardHeader, CardTitle } from "../shared/Card";
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@three-pages/ui";
 import { formatDuration } from "@/lib/utils";
 
 interface AudioPlayerProps {

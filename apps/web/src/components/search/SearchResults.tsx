@@ -1,12 +1,12 @@
-import { BookCard } from "./BookCard";
-import { LoadingSpinner } from "../shared/LoadingSpinner";
-import { ErrorMessage } from "../shared/ErrorMessage";
+import { BookCard } from "@/components/search/BookCard";
 import {
+  LoadingSpinner,
+  ErrorMessage,
   AnimatedContainer,
   AnimatedList,
   AnimatedListItem,
   AnimatedText,
-} from "../animated";
+} from "@three-pages/ui";
 import type { Book, SearchResponse } from "@/types";
 
 interface SearchResultsProps {

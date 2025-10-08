@@ -2,15 +2,18 @@ import { useState } from "react";
 import { Copy, Download, Check } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
-import { CardContent, CardHeader, CardTitle } from "../shared/Card";
-import { Button } from "../shared/Button";
-import { copyToClipboard, downloadText, formatNumber } from "@/lib/utils";
 import {
+  Button,
+  CardContent,
+  CardHeader,
+  CardTitle,
   AnimatedCard,
   AnimatedContainer,
   AnimatedText,
-  buttonVariants,
-} from "../animated";
+} from "@three-pages/ui";
+import { buttonVariants } from "@three-pages/ui/animations";
+import { copyToClipboard, downloadText, formatNumber } from "@/lib/utils";
+
 import type { SummaryResponse } from "@/types";
 
 interface SummaryCardProps {

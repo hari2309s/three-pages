@@ -4,7 +4,7 @@ use axum::{
 };
 
 use crate::{
-    models::{Book, BookDetail},
+    models::BookDetail,
     services::books::{
         BookAggregatorService, GoogleBooksService, GutenbergService, OpenLibraryService,
     },

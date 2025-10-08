@@ -8,7 +8,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    models::{AudioResponse, CreateAudioFile},
+    models::CreateAudioFile,
     services::huggingface::{HuggingFaceClient, TTSService},
     utils::{
         errors::{AppError, Result},

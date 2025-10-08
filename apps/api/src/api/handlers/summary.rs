@@ -3,7 +3,7 @@ use hex;
 use sha2::{Digest, Sha256};
 
 use crate::{
-    models::{CreateSummary, Summary, SummaryRequest, SummaryResponse},
+    models::{CreateSummary, SummaryRequest, SummaryResponse},
     services::{
         books::{BookAggregatorService, GoogleBooksService, GutenbergService, OpenLibraryService},
         huggingface::{HuggingFaceClient, SummarizerService},

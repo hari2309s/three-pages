@@ -5,6 +5,7 @@
   "private": true,
   "description": "Any book. Three pages. Any language.",
   "scripts": {
+    "dev": "cd apps/api && cargo run && cd apps/web && pnpm dev",
     "dev:web": "cd apps/web && pnpm dev",
     "dev:api": "cd apps/api && cargo run",
     "build:web": "cd apps/web && pnpm build",

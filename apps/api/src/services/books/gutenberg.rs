@@ -33,12 +33,23 @@ pub struct GutenbergService {
 }
 
 impl GutenbergService {
-    pub fn new(client: Client, base_url: String) -> Self {
+    pub fn new(_client: Client, base_url: String) -> Self {
+        // Create a new client that follows redirects for Gutenberg API
+        let client = Client::builder()
+            .redirect(reqwest::redirect::Policy::limited(10))
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .unwrap_or_else(|_| Client::new());
+
         Self { client, base_url }
     }
 
     pub async fn search(&self, query: &str, limit: usize) -> Result<Vec<Book>> {
-        let url = format!("{}/books?search={}", self.base_url, urlencoding::encode(query));
+        let url = format!(
+            "{}/books/?search={}",
+            self.base_url,
+            urlencoding::encode(query)
+        );
 
         let response = self.client.get(&url).send().await?;
 
@@ -60,7 +71,7 @@ impl GutenbergService {
     }
 
     pub async fn get_by_id(&self, id: i32) -> Result<Option<Book>> {
-        let url = format!("{}/books/{}", self.base_url, id);
+        let url = format!("{}/books/{}/", self.base_url, id);
 
         let response = self.client.get(&url).send().await?;
 

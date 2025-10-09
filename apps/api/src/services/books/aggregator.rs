@@ -24,20 +24,25 @@ impl BookAggregatorService {
     }
 
     pub async fn search(&self, query: &str, limit: usize) -> Result<Vec<Book>> {
-        let per_source = (limit / 2).max(5);
+        let per_source = (limit / 3).max(5);
 
         let google_result = self.google_books.search(query, per_source).await;
         let openlibrary_result = self.open_library.search(query, per_source).await;
+        let gutenberg_result = self.gutenberg.search(query, per_source).await;
 
-        let results = vec![google_result, openlibrary_result];
+        let results = vec![
+            ("Google Books", google_result),
+            ("Open Library", openlibrary_result),
+            ("Gutenberg", gutenberg_result),
+        ];
 
         let mut all_books = Vec::new();
 
-        for result in results {
+        for (source_name, result) in results {
             match result {
                 Ok(books) => all_books.extend(books),
                 Err(e) => {
-                    tracing::warn!("Book source failed: {}", e);
+                    tracing::warn!("{} search failed: {}", source_name, e);
                 }
             }
         }

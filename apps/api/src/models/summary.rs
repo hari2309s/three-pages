@@ -5,7 +5,6 @@ use uuid::Uuid;
 
 #[derive(Debug, Deserialize)]
 pub struct SummaryRequest {
-    pub book_id: String,
     #[serde(default = "default_language")]
     pub language: String,
     #[serde(default = "default_style")]

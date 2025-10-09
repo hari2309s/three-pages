@@ -1,4 +1,7 @@
-use axum::{extract::State, Json};
+use axum::{
+    extract::{Path, State},
+    Json,
+};
 use hex;
 use sha2::{Digest, Sha256};
 
@@ -17,19 +20,16 @@ use crate::{
 
 pub async fn generate_summary(
     State(state): State<AppState>,
+    Path(book_id): Path<String>,
     Json(payload): Json<SummaryRequest>,
 ) -> Result<Json<SummaryResponse>> {
-    validators::validate_query(&payload.book_id)?;
+    validators::validate_query(&book_id)?;
 
-    let cache_key = format!(
-        "summary:{}:{}",
-        payload.book_id,
-        payload.max_pages.unwrap_or(3)
-    );
+    let cache_key = format!("summary:{}:{}", book_id, payload.max_pages.unwrap_or(3));
 
     // Check cache first
     if let Some(cached) = state.cache.get_json::<SummaryResponse>(&cache_key).await {
-        tracing::info!("Returning cached summary for book: {}", payload.book_id);
+        tracing::info!("Returning cached summary for book: {}", book_id);
         return Ok(Json(cached));
     }
 
@@ -50,11 +50,9 @@ pub async fn generate_summary(
 
     // Get book details
     let book_detail = book_aggregator
-        .get_book_details(&payload.book_id)
+        .get_book_details(&book_id)
         .await?
-        .ok_or_else(|| {
-            AppError::BookNotFound(format!("Book with ID {} not found", payload.book_id))
-        })?;
+        .ok_or_else(|| AppError::BookNotFound(format!("Book with ID {} not found", book_id)))?;
 
     // Initialize HuggingFace client for summarization
     let hf_client = HuggingFaceClient::new(
@@ -103,7 +101,7 @@ pub async fn generate_summary(
 
     // Create summary record for database
     let create_summary = CreateSummary {
-        book_id: payload.book_id.clone(),
+        book_id: book_id.clone(),
         book_title: book_detail.book.title.clone(),
         book_author: book_detail.book.author_names(),
         isbn: book_detail.book.isbn.clone(),
@@ -122,6 +120,6 @@ pub async fn generate_summary(
     // Cache the result
     state.cache.set_json(cache_key, &response).await;
 
-    tracing::info!("Generated summary for book: {}", payload.book_id);
+    tracing::info!("Generated summary for book: {}", book_id);
     Ok(Json(response))
 }

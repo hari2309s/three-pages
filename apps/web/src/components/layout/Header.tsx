@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 
 export const Header = () => {
   return (
-    <header className="border-b bg-header text-header">
+    <header className="border-b bg-header text-header mb-2 border-[1px] rounded-md">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center gap-2">
           <motion.img

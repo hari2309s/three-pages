@@ -6,12 +6,12 @@ interface LayoutProps {
   children: ReactNode;
 }
 
-const Layout = ({ children }: LayoutProps) => {
+export const Layout = ({ children }: LayoutProps) => {
   return (
     <AnimatedContainer
       variant="container"
       staggerChildren={true}
-      className="flex min-h-screen flex-col"
+      className="flex min-h-screen flex-col p-6"
     >
       <AnimatedContainer variant="fade">
         <Header />
@@ -26,5 +26,3 @@ const Layout = ({ children }: LayoutProps) => {
     </AnimatedContainer>
   );
 };
-
-export default Layout;

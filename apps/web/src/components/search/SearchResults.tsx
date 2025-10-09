@@ -1,4 +1,4 @@
-import { BookCard } from "@/components/search/BookCard";
+import { BookCard } from "@/components/search";
 import {
   LoadingSpinner,
   ErrorMessage,

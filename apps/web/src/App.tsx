@@ -1,13 +1,11 @@
 import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AnimatePresence } from "framer-motion";
-import Layout from "@/components/layout/Layout";
-import { SearchBar } from "@/components/search/SearchBar";
-import { SearchResults } from "@/components/search/SearchResults";
-import { BookDetail } from "@/components/book/BookDetail";
-import { LanguageSelector } from "@/components/summary/LanguageSelector";
-import { SummaryCard } from "@/components/summary/SummaryCard";
-import { AudioPlayer } from "@/components/audio/AudioPlayer";
+import { Layout } from "@/components/layout";
+import { SearchBar, SearchResults } from "@/components/search";
+import { BookDetail } from "@/components/book";
+import { LanguageSelector, SummaryCard } from "@/components/summary";
+import { AudioPlayer } from "@/components/audio";
 import { LoadingSpinner, ErrorMessage, Button } from "@three-pages/ui";
 import { useBookSearch, useAudio, useBookDetail, useSummary } from "@/hooks";
 import {

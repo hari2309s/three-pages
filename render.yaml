@@ -1,7 +1,7 @@
 services:
   - type: web
     name: book-summarizer-api
-    env: rust
+    runtime: rust
     plan: free
     buildCommand: cargo build --release
     startCommand: ./target/release/book-summarizer-api

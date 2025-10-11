@@ -317,6 +317,7 @@ Full API documentation available at `/api/docs` when running locally.
 ### Common Issues
 
 **"Gutenberg books not appearing in search"**
+
 - **Root Causes Fixed**:
   1. **Aggregator Issue**: Gutenberg was not included in the BookAggregatorService search method
   2. **HTTP Redirect Issue**: Gutenberg API returns 301 redirects, but HTTP client wasn't following them
@@ -341,17 +342,20 @@ Full API documentation available at `/api/docs` when running locally.
   4. Check that `per_source` is calculated as `(limit / 3).max(5)` not `(limit / 2).max(5)`
 - **Test**: Search for "love", "family", or "shakespeare" - should return Gutenberg results with IDs like `gutenberg:1234`
 
-**"AI services failing"**  
+**"AI services failing"**
+
 - Verify `HF_TOKEN` is valid
 - Check Hugging Face API status
 - Try reducing concurrent requests
 
 **"Database connection errors"**
+
 - Verify PostgreSQL is running
 - Check `DATABASE_URL` format
 - Run migrations: `sqlx migrate run`
 
 **"HTTP client timeout errors"**
+
 - Gutenberg service now uses redirect-following client
 - Default timeout is 30 seconds
 - Check network connectivity to `https://gutendx.com`
@@ -364,7 +368,7 @@ Enable detailed logging:
 # Backend
 RUST_LOG=debug pnpm dev:api
 
-# Frontend  
+# Frontend
 DEBUG=* pnpm dev:web
 ```
 

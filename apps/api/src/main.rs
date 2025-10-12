@@ -57,7 +57,7 @@ async fn main() -> Result<()> {
 
     // Create HTTP client
     let http_client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
+        .timeout(std::time::Duration::from_secs(180))
         .build()?;
 
     // Create application state

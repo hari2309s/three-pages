@@ -3,7 +3,8 @@ use crate::{
     utils::{errors::Result, text},
 };
 
-const TTS_MODEL: &str = "facebook/mms-tts-eng";
+const TTS_MODEL: &str = "microsoft/speecht5_tts";
+const BACKUP_TTS_MODEL: &str = "facebook/mms-tts-eng";
 
 pub struct TTSService {
     client: HuggingFaceClient,
@@ -33,6 +34,7 @@ impl TTSService {
         // Try language-specific model first
         let primary_model = self.get_tts_model(language);
 
+        // First attempt with primary model
         match self
             .generate_with_retry(primary_model, &cleaned_text, 2)
             .await
@@ -43,36 +45,64 @@ impl TTSService {
             }
             Err(e) => {
                 tracing::warn!(
-                    "Failed to generate audio with {}: {}. Trying fallback...",
+                    "Failed to generate audio with {}: {}. Trying fallbacks...",
                     primary_model,
                     e
                 );
 
-                // Fallback to English model if language-specific model fails
+                // Fallback 1: Try main TTS model if not already used
                 if primary_model != TTS_MODEL {
                     match self.generate_with_retry(TTS_MODEL, &cleaned_text, 2).await {
                         Ok(audio_data) => {
-                            tracing::info!(
-                                "Successfully generated audio with fallback English model"
-                            );
-                            Ok(audio_data)
+                            tracing::info!("Successfully generated audio with main TTS model");
+                            return Ok(audio_data);
                         }
                         Err(fallback_e) => {
-                            tracing::error!(
-                                "Both primary and fallback TTS failed: {} | {}",
-                                e,
-                                fallback_e
-                            );
-                            Err(crate::utils::errors::AppError::ExternalApi(format!(
-                                "TTS generation failed for both {} and English models",
-                                language
-                            )))
+                            tracing::warn!("Main TTS model also failed: {}", fallback_e);
                         }
                     }
-                } else {
-                    tracing::error!("English TTS model failed: {}", e);
-                    Err(e)
                 }
+
+                // Fallback 2: Try backup model
+                if primary_model != BACKUP_TTS_MODEL && TTS_MODEL != BACKUP_TTS_MODEL {
+                    match self
+                        .generate_with_retry(BACKUP_TTS_MODEL, &cleaned_text, 2)
+                        .await
+                    {
+                        Ok(audio_data) => {
+                            tracing::info!("Successfully generated audio with backup model");
+                            return Ok(audio_data);
+                        }
+                        Err(backup_e) => {
+                            tracing::warn!("Backup TTS model failed: {}", backup_e);
+                        }
+                    }
+                }
+
+                // Fallback 3: Try with shortened text
+                let short_text =
+                    self.clean_text_for_tts(&cleaned_text[..cleaned_text.len().min(200)]);
+                if !short_text.is_empty() && short_text != cleaned_text {
+                    tracing::info!(
+                        "Attempting TTS with shortened text ({} chars)",
+                        short_text.len()
+                    );
+                    match self.generate_with_retry(TTS_MODEL, &short_text, 1).await {
+                        Ok(audio_data) => {
+                            tracing::info!("Successfully generated audio with shortened text");
+                            return Ok(audio_data);
+                        }
+                        Err(short_e) => {
+                            tracing::warn!("Shortened text TTS failed: {}", short_e);
+                        }
+                    }
+                }
+
+                tracing::error!("All TTS fallback strategies failed");
+                Err(crate::utils::errors::AppError::ExternalApi(format!(
+                    "TTS generation failed for language {} after trying multiple models and strategies",
+                    language
+                )))
             }
         }
     }
@@ -118,31 +148,66 @@ impl TTSService {
     }
 
     fn clean_text_for_tts(&self, text: &str) -> String {
-        text
+        let cleaned = text
             // Remove markdown and formatting
             .replace("**", "")
             .replace("*", "")
             .replace("_", "")
             .replace("#", "")
-            // Replace common abbreviations that might cause issues
+            .replace("`", "")
+            .replace("~", "")
+            // Replace problematic characters
             .replace("&", "and")
+            .replace("@", "at")
+            .replace("%", "percent")
+            .replace("$", "dollars")
+            .replace("€", "euros")
+            .replace("£", "pounds")
+            // Replace common abbreviations that might cause issues
             .replace("e.g.", "for example")
             .replace("i.e.", "that is")
             .replace("etc.", "and so on")
-            // Remove extra whitespace
+            .replace("vs.", "versus")
+            .replace("Mr.", "Mister")
+            .replace("Mrs.", "Missus")
+            .replace("Dr.", "Doctor")
+            // Remove URLs and email patterns
+            .split_whitespace()
+            .filter(|word| !word.contains("http") && !word.contains("@"))
+            .collect::<Vec<_>>()
+            .join(" ")
+            // Remove special characters that might cause TTS issues
+            .chars()
+            .filter(|c| c.is_alphanumeric() || " .,!?;:'-".contains(*c))
+            .collect::<String>()
+            // Clean up extra whitespace and punctuation
             .split_whitespace()
             .collect::<Vec<_>>()
             .join(" ")
             // Limit to reasonable length for TTS
             .chars()
             .take(1000)
-            .collect()
+            .collect::<String>();
+
+        // Ensure we don't end mid-sentence
+        if cleaned.len() >= 1000 {
+            if let Some(last_sentence_end) = cleaned.rfind(&['.', '!', '?'][..]) {
+                if last_sentence_end > 500 {
+                    // Only truncate if we have at least 500 chars
+                    return cleaned[..=last_sentence_end].to_string();
+                }
+            }
+        }
+
+        cleaned
     }
 
     fn get_tts_model(&self, language: &str) -> &str {
         match language {
             "de" => "facebook/mms-tts-deu",
             "ta" => "facebook/mms-tts-tam",
+            "es" => "facebook/mms-tts-spa",
+            "fr" => "facebook/mms-tts-fra",
             _ => TTS_MODEL, // English (en) and fallback
         }
     }

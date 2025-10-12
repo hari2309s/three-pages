@@ -21,16 +21,13 @@ impl SummarizerService {
     }
 
     /// Main entry point for book summarization
-    /// Implements hierarchical summarization: chunks → sections → final 3-page summary
+    /// Implements fast summarization optimized for speed
     pub async fn summarize(&self, content: &str, language: &str, style: &str) -> Result<String> {
         if content.is_empty() {
             return Ok(self.get_fallback_message(language));
         }
 
-        tracing::info!(
-            "Starting hierarchical summarization for language: {}",
-            language
-        );
+        tracing::info!("Starting fast summarization for language: {}", language);
 
         // Step 1: Clean the content
         let cleaned_content = self.clean_project_gutenberg_text(content);
@@ -38,8 +35,21 @@ impl SummarizerService {
 
         tracing::info!("Cleaned content has {} words", word_count);
 
-        // Step 2: Smart chunking based on book length
-        let chunks = self.smart_chunk_by_paragraphs(&cleaned_content, 1000);
+        // For shorter content, skip chunking and summarize directly
+        if word_count <= 2000 {
+            tracing::info!("Content is short enough for direct summarization");
+            return if language == "en" {
+                self.client
+                    .summarize_bart(SUMMARIZATION_MODEL, &cleaned_content, 800, 200)
+                    .await
+            } else {
+                self.multilingual_summarize(&cleaned_content, language, style, 800, 200)
+                    .await
+            };
+        }
+
+        // Step 2: Smart chunking with larger chunks for efficiency
+        let chunks = self.smart_chunk_by_paragraphs(&cleaned_content, 1500);
 
         if chunks.is_empty() {
             return Ok(self.fallback_summary(&cleaned_content));
@@ -47,7 +57,7 @@ impl SummarizerService {
 
         tracing::info!("Split into {} chunks for processing", chunks.len());
 
-        // Step 3: First pass - Summarize each chunk (Level 1)
+        // Step 3: Summarize chunks directly to final summary (skip intermediate steps)
         let chunk_summaries = self.summarize_chunks(&chunks, language, style).await?;
 
         if chunk_summaries.is_empty() {
@@ -56,17 +66,18 @@ impl SummarizerService {
 
         tracing::info!("Generated {} chunk summaries", chunk_summaries.len());
 
-        // Step 4: Second pass - Combine chunk summaries into section summaries (Level 2)
-        let section_summaries = self
-            .combine_into_sections(&chunk_summaries, language, style)
-            .await?;
-
-        tracing::info!("Generated {} section summaries", section_summaries.len());
-
-        // Step 5: Final pass - Create the 3-page summary (Level 3)
-        let final_summary = self
-            .create_final_summary(&section_summaries, language, style)
-            .await?;
+        // Step 4: Create final summary directly from chunk summaries
+        let combined_summaries = chunk_summaries.join("\n\n");
+        let final_summary = if language == "en" {
+            self.client
+                .summarize_bart(SUMMARIZATION_MODEL, &combined_summaries, 1200, 300)
+                .await
+                .unwrap_or_else(|_| self.fallback_summary(&combined_summaries))
+        } else {
+            self.multilingual_summarize(&combined_summaries, language, style, 1200, 300)
+                .await
+                .unwrap_or_else(|_| self.fallback_summary(&combined_summaries))
+        };
 
         let word_count = final_summary.split_whitespace().count();
         tracing::info!(
@@ -87,8 +98,8 @@ impl SummarizerService {
     ) -> Result<Vec<String>> {
         let mut summaries = Vec::new();
 
-        // Limit to prevent excessive API calls
-        let max_chunks = 15.min(chunks.len());
+        // Limit to prevent excessive API calls and timeouts
+        let max_chunks = 4.min(chunks.len());
 
         for (i, chunk) in chunks.iter().take(max_chunks).enumerate() {
             let summary_result = if language == "en" {
@@ -428,7 +439,8 @@ impl SummarizerService {
     }
 
     /// Smart chunking by paragraphs to maintain context
-    fn smart_chunk_by_paragraphs(&self, text: &str, max_words: usize) -> Vec<String> {
+    fn smart_chunk_by_paragraphs(&self, text: &str, target_words: usize) -> Vec<String> {
+        // For faster processing, create fewer, larger chunks
         // Split by double newlines (paragraphs) or sentences
         let paragraphs: Vec<&str> = text
             .split("\n\n")
@@ -436,7 +448,7 @@ impl SummarizerService {
             .collect();
 
         if paragraphs.is_empty() {
-            return self.fallback_chunk_by_words(text, max_words);
+            return self.fallback_chunk_by_words(text, target_words);
         }
 
         let mut chunks = Vec::new();
@@ -447,7 +459,7 @@ impl SummarizerService {
             let para_words = para.split_whitespace().count();
 
             // If single paragraph is too large, split it
-            if para_words > max_words {
+            if para_words > target_words {
                 if !current_chunk.is_empty() {
                     chunks.push(current_chunk.join("\n\n"));
                     current_chunk.clear();
@@ -461,7 +473,7 @@ impl SummarizerService {
 
                 for sent in sentences {
                     let sent_words = sent.split_whitespace().count();
-                    if sent_count + sent_words > max_words && !sentence_chunk.is_empty() {
+                    if sent_count + sent_words > target_words && !sentence_chunk.is_empty() {
                         chunks.push(sentence_chunk.join(" "));
                         sentence_chunk.clear();
                         sent_count = 0;
@@ -476,7 +488,7 @@ impl SummarizerService {
                 continue;
             }
 
-            if word_count + para_words > max_words && !current_chunk.is_empty() {
+            if word_count + para_words > target_words && !current_chunk.is_empty() {
                 chunks.push(current_chunk.join("\n\n"));
                 current_chunk.clear();
                 word_count = 0;
@@ -494,14 +506,14 @@ impl SummarizerService {
     }
 
     /// Fallback chunking by words if paragraph splitting fails
-    fn fallback_chunk_by_words(&self, text: &str, max_words: usize) -> Vec<String> {
+    fn fallback_chunk_by_words(&self, text: &str, target_words: usize) -> Vec<String> {
         let words: Vec<&str> = text.split_whitespace().collect();
-        if words.len() <= max_words {
+        if words.len() <= target_words {
             return vec![text.to_string()];
         }
 
         let mut chunks = Vec::new();
-        for chunk in words.chunks(max_words) {
+        for chunk in words.chunks(target_words) {
             chunks.push(chunk.join(" "));
         }
         chunks

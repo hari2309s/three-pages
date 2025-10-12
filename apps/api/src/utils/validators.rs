@@ -1,8 +1,6 @@
 use crate::utils::errors::{AppError, Result};
 
-const SUPPORTED_LANGUAGES: &[&str] = &[
-    "en", "es", "fr", "de", "it", "pt", "zh", "ja", "ko", "ar", "hi", "ru", "nl", "pl", "tr",
-];
+const SUPPORTED_LANGUAGES: &[&str] = &["en", "de", "ta"];
 
 pub fn validate_language(lang: &str) -> Result<()> {
     if SUPPORTED_LANGUAGES.contains(&lang) {

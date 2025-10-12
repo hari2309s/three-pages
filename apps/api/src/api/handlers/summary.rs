@@ -24,6 +24,8 @@ pub async fn generate_summary(
     Json(payload): Json<SummaryRequest>,
 ) -> Result<Json<SummaryResponse>> {
     validators::validate_query(&book_id)?;
+    validators::validate_language(&payload.language)?;
+    validators::validate_style(&payload.style)?;
 
     let cache_key = format!("summary:{}:{}", book_id, payload.max_pages.unwrap_or(3));
 

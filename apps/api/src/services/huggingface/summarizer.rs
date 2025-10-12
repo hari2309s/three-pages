@@ -3,6 +3,9 @@ use crate::{services::huggingface::client::HuggingFaceClient, utils::errors::Res
 // Switch to BART for better book summarization
 const SUMMARIZATION_MODEL: &str = "facebook/bart-large-cnn";
 
+// Language-specific models and prompts
+const MULTILINGUAL_MODEL: &str = "facebook/mbart-large-50-many-to-many-mmt";
+
 // Target words for 3 pages (500-600 words per page)
 const TARGET_FINAL_WORDS: usize = 1650; // Middle of 1500-1800 range
 const MIN_FINAL_WORDS: usize = 1500;
@@ -21,10 +24,13 @@ impl SummarizerService {
     /// Implements hierarchical summarization: chunks → sections → final 3-page summary
     pub async fn summarize(&self, content: &str, language: &str, style: &str) -> Result<String> {
         if content.is_empty() {
-            return Ok("No content available for summarization.".to_string());
+            return Ok(self.get_fallback_message(language));
         }
 
-        tracing::info!("Starting hierarchical summarization...");
+        tracing::info!(
+            "Starting hierarchical summarization for language: {}",
+            language
+        );
 
         // Step 1: Clean the content
         let cleaned_content = self.clean_project_gutenberg_text(content);
@@ -42,7 +48,7 @@ impl SummarizerService {
         tracing::info!("Split into {} chunks for processing", chunks.len());
 
         // Step 3: First pass - Summarize each chunk (Level 1)
-        let chunk_summaries = self.summarize_chunks(&chunks).await?;
+        let chunk_summaries = self.summarize_chunks(&chunks, language, style).await?;
 
         if chunk_summaries.is_empty() {
             return Ok(self.fallback_summary(&cleaned_content));
@@ -51,7 +57,9 @@ impl SummarizerService {
         tracing::info!("Generated {} chunk summaries", chunk_summaries.len());
 
         // Step 4: Second pass - Combine chunk summaries into section summaries (Level 2)
-        let section_summaries = self.combine_into_sections(&chunk_summaries).await?;
+        let section_summaries = self
+            .combine_into_sections(&chunk_summaries, language, style)
+            .await?;
 
         tracing::info!("Generated {} section summaries", section_summaries.len());
 
@@ -60,36 +68,50 @@ impl SummarizerService {
             .create_final_summary(&section_summaries, language, style)
             .await?;
 
+        let word_count = final_summary.split_whitespace().count();
         tracing::info!(
-            "Final summary generated with {} words",
-            final_summary.split_whitespace().count()
+            "Final summary generated with {} words in language: {}",
+            word_count,
+            language
         );
 
         Ok(final_summary)
     }
 
     /// Summarize individual chunks (Level 1)
-    async fn summarize_chunks(&self, chunks: &[String]) -> Result<Vec<String>> {
+    async fn summarize_chunks(
+        &self,
+        chunks: &[String],
+        language: &str,
+        style: &str,
+    ) -> Result<Vec<String>> {
         let mut summaries = Vec::new();
 
         // Limit to prevent excessive API calls
         let max_chunks = 15.min(chunks.len());
 
         for (i, chunk) in chunks.iter().take(max_chunks).enumerate() {
-            match self
-                .client
-                .summarize_bart(SUMMARIZATION_MODEL, chunk, 200, 50)
-                .await
-            {
+            let summary_result = if language == "en" {
+                // Use BART for English
+                self.client
+                    .summarize_bart(SUMMARIZATION_MODEL, chunk, 200, 50)
+                    .await
+            } else {
+                // Use multilingual approach for other languages
+                self.multilingual_summarize(chunk, language, style, 200, 50)
+                    .await
+            };
+
+            match summary_result {
                 Ok(summary) => {
                     let clean = self.clean_summary(&summary);
                     if !clean.is_empty() {
                         summaries.push(clean);
-                        tracing::debug!("Chunk {} summarized successfully", i + 1);
+                        tracing::debug!("Chunk {} summarized successfully in {}", i + 1, language);
                     }
                 }
                 Err(e) => {
-                    tracing::warn!("Failed to summarize chunk {}: {}", i + 1, e);
+                    tracing::warn!("Failed to summarize chunk {} in {}: {}", i + 1, language, e);
                     // Continue with other chunks
                     continue;
                 }
@@ -100,7 +122,12 @@ impl SummarizerService {
     }
 
     /// Combine chunk summaries into section summaries (Level 2)
-    async fn combine_into_sections(&self, chunk_summaries: &[String]) -> Result<Vec<String>> {
+    async fn combine_into_sections(
+        &self,
+        chunk_summaries: &[String],
+        language: &str,
+        style: &str,
+    ) -> Result<Vec<String>> {
         if chunk_summaries.len() <= 3 {
             // If we have 3 or fewer summaries, skip this level
             return Ok(chunk_summaries.to_vec());
@@ -114,16 +141,23 @@ impl SummarizerService {
         for section_chunks in chunk_summaries.chunks(chunks_per_section) {
             let combined = section_chunks.join("\n\n");
 
-            match self
-                .client
-                .summarize_bart(SUMMARIZATION_MODEL, &combined, 300, 100)
-                .await
-            {
+            let summary_result = if language == "en" {
+                // Use BART for English
+                self.client
+                    .summarize_bart(SUMMARIZATION_MODEL, &combined, 300, 100)
+                    .await
+            } else {
+                // Use multilingual approach for other languages
+                self.multilingual_summarize(&combined, language, style, 300, 100)
+                    .await
+            };
+
+            match summary_result {
                 Ok(summary) => {
                     section_summaries.push(self.clean_summary(&summary));
                 }
                 Err(e) => {
-                    tracing::warn!("Failed to combine section: {}", e);
+                    tracing::warn!("Failed to combine section in {}: {}", language, e);
                     // Fall back to using the chunks directly
                     section_summaries.push(combined);
                 }
@@ -137,8 +171,8 @@ impl SummarizerService {
     async fn create_final_summary(
         &self,
         section_summaries: &[String],
-        _language: &str,
-        _style: &str,
+        language: &str,
+        style: &str,
     ) -> Result<String> {
         let combined = section_summaries.join("\n\n");
 
@@ -146,11 +180,19 @@ impl SummarizerService {
         let target_tokens = (TARGET_FINAL_WORDS as f32 * 1.3) as usize;
         let min_tokens = (MIN_FINAL_WORDS as f32 * 1.3) as usize;
 
-        match self
-            .client
-            .summarize_bart(SUMMARIZATION_MODEL, &combined, target_tokens, min_tokens)
-            .await
-        {
+        // Use language-specific summarization
+        let summary_result = if language == "en" {
+            // Use BART for English
+            self.client
+                .summarize_bart(SUMMARIZATION_MODEL, &combined, target_tokens, min_tokens)
+                .await
+        } else {
+            // Use multilingual approach for other languages
+            self.multilingual_summarize(&combined, language, style, target_tokens, min_tokens)
+                .await
+        };
+
+        match summary_result {
             Ok(summary) => {
                 let final_text = self.clean_summary(&summary);
                 let word_count = final_text.split_whitespace().count();
@@ -158,7 +200,9 @@ impl SummarizerService {
                 // If summary is too short, try to expand it
                 if word_count < MIN_FINAL_WORDS && section_summaries.len() > 1 {
                     tracing::info!("Summary too short ({}), attempting expansion", word_count);
-                    return self.expand_summary(section_summaries).await;
+                    return self
+                        .expand_summary_multilingual(section_summaries, language)
+                        .await;
                 }
 
                 Ok(final_text)
@@ -185,6 +229,185 @@ impl SummarizerService {
         {
             Ok(summary) => Ok(self.clean_summary(&summary)),
             Err(_) => Ok(self.format_sections(section_summaries)),
+        }
+    }
+
+    /// Expand summary if it's too short (multilingual version)
+    async fn expand_summary_multilingual(
+        &self,
+        section_summaries: &[String],
+        language: &str,
+    ) -> Result<String> {
+        let combined = section_summaries.join("\n\n");
+        let target_tokens = (MAX_FINAL_WORDS as f32 * 1.3) as usize;
+        let min_tokens = (TARGET_FINAL_WORDS as f32 * 1.3) as usize;
+
+        match self
+            .multilingual_summarize(&combined, language, "detailed", target_tokens, min_tokens)
+            .await
+        {
+            Ok(summary) => Ok(self.clean_summary(&summary)),
+            Err(_) => Ok(self.format_sections(section_summaries)),
+        }
+    }
+
+    /// Multilingual summarization using text generation with language-specific prompts
+    async fn multilingual_summarize(
+        &self,
+        text: &str,
+        language: &str,
+        style: &str,
+        target_tokens: usize,
+        min_tokens: usize,
+    ) -> Result<String> {
+        // For very short texts, use direct translation approach
+        if text.split_whitespace().count() < 100 {
+            let simple_prompt = format!(
+                "Summarize the following text in {}:\n\n{}",
+                self.get_language_name(language),
+                text
+            );
+            return self
+                .client
+                .summarize_bart(
+                    SUMMARIZATION_MODEL,
+                    &simple_prompt,
+                    target_tokens,
+                    min_tokens,
+                )
+                .await;
+        }
+
+        let prompt = self.create_language_prompt(text, language, style, target_tokens);
+
+        // Try multilingual model first, fallback to text generation
+        match self
+            .client
+            .text_generation(MULTILINGUAL_MODEL, &prompt)
+            .await
+        {
+            Ok(result) => {
+                // Clean and validate the result
+                let cleaned = self.clean_summary(&result);
+                if cleaned.split_whitespace().count() > 10 {
+                    Ok(cleaned)
+                } else {
+                    // If result is too short, fallback
+                    self.fallback_multilingual_summary(text, language, target_tokens, min_tokens)
+                        .await
+                }
+            }
+            Err(e) => {
+                tracing::warn!("Multilingual model failed for {}: {}", language, e);
+                self.fallback_multilingual_summary(text, language, target_tokens, min_tokens)
+                    .await
+            }
+        }
+    }
+
+    /// Fallback multilingual summarization method
+    async fn fallback_multilingual_summary(
+        &self,
+        text: &str,
+        language: &str,
+        target_tokens: usize,
+        min_tokens: usize,
+    ) -> Result<String> {
+        // Fallback to English BART with language instruction
+        let fallback_prompt = format!(
+            "Please summarize the following text in {} language:\n\n{}",
+            self.get_language_name(language),
+            text
+        );
+
+        self.client
+            .summarize_bart(
+                SUMMARIZATION_MODEL,
+                &fallback_prompt,
+                target_tokens,
+                min_tokens,
+            )
+            .await
+    }
+
+    /// Create language-specific prompts for summarization
+    fn create_language_prompt(
+        &self,
+        text: &str,
+        language: &str,
+        style: &str,
+        target_words: usize,
+    ) -> String {
+        let language_instructions = match language {
+            "de" => format!("Erstellen Sie eine detaillierte Zusammenfassung von etwa {} Wörtern des folgenden Textes auf Deutsch:", target_words),
+            "ta" => format!("பின்வரும் உரையின் தமிழில் சுமார் {} வார்த்தைகளின் விரிவான சுருக்கத்தை உருவாக்கவும்:", target_words),
+            _ => format!("Create a detailed summary of approximately {} words of the following text:", target_words),
+        };
+
+        let style_instruction = match style {
+            "academic" => self.get_academic_style_instruction(language),
+            "simple" => self.get_simple_style_instruction(language),
+            "detailed" => self.get_detailed_style_instruction(language),
+            _ => self.get_concise_style_instruction(language),
+        };
+
+        format!(
+            "{}\n\n{}\n\nText: {}",
+            language_instructions, style_instruction, text
+        )
+    }
+
+    fn get_language_name(&self, code: &str) -> &str {
+        match code {
+            "de" => "German",
+            "ta" => "Tamil",
+            _ => "English",
+        }
+    }
+
+    fn get_academic_style_instruction(&self, language: &str) -> String {
+        match language {
+            "de" => "Verwenden Sie einen akademischen und formalen Ton mit tiefgreifender Analyse."
+                .to_string(),
+            "ta" => "ஆழமான பகுப்பாய்வுடன் கல்வி மற்றும் முறையான தொனியைப் பயன்படுத்தவும்.".to_string(),
+            _ => "Use an academic and formal tone with in-depth analysis.".to_string(),
+        }
+    }
+
+    fn get_simple_style_instruction(&self, language: &str) -> String {
+        match language {
+            "de" => "Verwenden Sie eine einfache und klare Sprache, die leicht zu verstehen ist."
+                .to_string(),
+            "ta" => "புரிந்துகொள்ள எளிதான எளிய மற்றும் தெளிவான மொழியைப் பயன்படுத்தவும்.".to_string(),
+            _ => "Use simple and clear language that is easy to understand.".to_string(),
+        }
+    }
+
+    fn get_detailed_style_instruction(&self, language: &str) -> String {
+        match language {
+            "de" => {
+                "Bieten Sie eine umfassende und ausführliche Abdeckung des Inhalts.".to_string()
+            }
+            "ta" => "உள்ளடக்கத்தின் விரிவான மற்றும் முழுமையான கவரேஜை வழங்கவும்.".to_string(),
+            _ => "Provide comprehensive and thorough coverage of the content.".to_string(),
+        }
+    }
+
+    fn get_concise_style_instruction(&self, language: &str) -> String {
+        match language {
+            "de" => {
+                "Seien Sie kurz und auf den Punkt, erfassen Sie nur das Wesentliche.".to_string()
+            }
+            "ta" => "சுருக்கமாகவும் புள்ளிக்கும் இருங்கள், அத்தியாவசியமானவற்றை மட்டும் கைப்பற்றவும்.".to_string(),
+            _ => "Be brief and to the point, capturing only the essentials.".to_string(),
+        }
+    }
+
+    fn get_fallback_message(&self, language: &str) -> String {
+        match language {
+            "de" => "Kein Inhalt zum Zusammenfassen verfügbar.".to_string(),
+            "ta" => "சுருக்கத்திற்கு எந்த உள்ளடக்கமும் இல்லை.".to_string(),
+            _ => "No content available for summarization.".to_string(),
         }
     }
 

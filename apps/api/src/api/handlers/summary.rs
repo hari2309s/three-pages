@@ -45,7 +45,7 @@ pub async fn generate_summary(
 
     let gutenberg = GutenbergService::new(
         state.http_client.clone(),
-        state.config.gutenberg_api_base.clone(),
+        state.config.gutenberg_api_base_url.clone(),
     );
 
     let book_aggregator = BookAggregatorService::new(google_books, open_library, gutenberg);

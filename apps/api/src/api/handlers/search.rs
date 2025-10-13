@@ -1,13 +1,13 @@
-use axum::{Json, extract::State};
+use axum::{extract::State, Json};
 
 use crate::{
-    AppState,
     models::{SearchRequest, SearchResponse},
     services::{
         books::{BookAggregatorService, GoogleBooksService, GutenbergService, OpenLibraryService},
         huggingface::{HuggingFaceClient, NLPService},
     },
     utils::{errors::Result, validators},
+    AppState,
 };
 
 pub async fn search_books(
@@ -48,7 +48,7 @@ pub async fn search_books(
 
     let gutenberg = GutenbergService::new(
         state.http_client.clone(),
-        state.config.gutenberg_api_base.clone(),
+        state.config.gutenberg_api_base_url.clone(),
     );
 
     let aggregator = BookAggregatorService::new(google_books, open_library, gutenberg);

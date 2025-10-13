@@ -22,8 +22,8 @@ pub struct Settings {
 
     pub google_books_api_key: Option<String>,
 
-    #[serde(default = "default_gutenberg_base")]
-    pub gutenberg_api_base: String,
+    #[serde(default = "default_gutenberg_base_url")]
+    pub gutenberg_api_base_url: String,
 
     #[serde(default = "default_cache_ttl")]
     pub cache_ttl_seconds: u64,
@@ -51,7 +51,7 @@ fn default_hf_base_url() -> String {
     "https://api-inference.huggingface.co".to_string()
 }
 
-fn default_gutenberg_base() -> String {
+fn default_gutenberg_base_url() -> String {
     "https://gutendex.com".to_string()
 }
 
@@ -94,8 +94,8 @@ impl Settings {
 
         let google_books_api_key = env::var("GOOGLE_BOOKS_API_KEY").ok();
 
-        let gutenberg_api_base =
-            env::var("GUTENBERG_API_BASE").unwrap_or_else(|_| default_gutenberg_base());
+        let gutenberg_api_base_url =
+            env::var("GUTENBERG_API_BASE_URL").unwrap_or_else(|_| default_gutenberg_base_url());
 
         let cache_ttl_seconds = env::var("CACHE_TTL_SECONDS")
             .ok()
@@ -120,7 +120,7 @@ impl Settings {
             hf_token,
             hf_api_base_url,
             google_books_api_key,
-            gutenberg_api_base,
+            gutenberg_api_base_url,
             cache_ttl_seconds,
             cache_max_capacity,
             allowed_origins,

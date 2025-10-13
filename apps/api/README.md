@@ -120,7 +120,7 @@ GET /api/summary/:id/audio?language=en&voice_type=default
 | `HF_TOKEN`             | Hugging Face API token                 | Yes      | -                                    |
 | `HF_API_BASE_URL`      | Hugging Face API base URL              | No       | https://api-inference.huggingface.co |
 | `GOOGLE_BOOKS_API_KEY` | Google Books API key (optional)        | No       | -                                    |
-| `GUTENBERG_API_BASE`   | Project Gutenberg API base URL         | No       | https://gutendex.com                 |
+| `GUTENBERG_API_BASE_URL`   | Project Gutenberg API base URL         | No       | https://gutendex.com                 |
 | `CACHE_TTL_SECONDS`    | Cache TTL in seconds                   | No       | 3600                                 |
 | `CACHE_MAX_CAPACITY`   | Maximum cache entries                  | No       | 1000                                 |
 | `ALLOWED_ORIGINS`      | CORS allowed origins (comma-separated) | No       | localhost:5173,localhost:3000        |

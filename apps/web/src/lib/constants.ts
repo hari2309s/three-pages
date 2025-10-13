@@ -1,5 +1,5 @@
 export const SUPPORTED_LANGUAGES = [
-  { code: "en", name: "English", flag: "🇬🇧" },
+  { code: "en", name: "English", flag: "🇺🇸" },
   { code: "de", name: "German", flag: "🇩🇪" },
   { code: "ta", name: "Tamil", flag: "🇮🇳" },
 ];

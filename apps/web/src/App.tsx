@@ -187,9 +187,14 @@ function AppContent() {
                                   variant="outline"
                                   className="w-full"
                                 >
-                                  {audio.isPending
-                                    ? "Generating Audio..."
-                                    : "Generate Audio"}
+                                  {audio.isPending ? (
+                                    <div className="flex items-center justify-center gap-2">
+                                      <LoadingSpinner size="sm" />
+                                      <span>Generating Audio...</span>
+                                    </div>
+                                  ) : (
+                                    "Generate Audio"
+                                  )}
                                 </Button>
 
                                 {audio.isError && (

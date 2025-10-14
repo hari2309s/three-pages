@@ -9,7 +9,8 @@ pub fn create_router(state: AppState) -> Router {
     let cors = create_cors_layer(state.config.allowed_origins.clone());
 
     Router::new()
-        .route("/api/health", get(handlers::health_check))
+        .route("/api/health", get(handlers::simple_health_check))
+        .route("/api/health/detailed", get(handlers::health_check))
         .route("/api/search", post(handlers::search_books))
         .route("/api/books/:id", get(handlers::get_book))
         .route("/api/books/:id/summary", post(handlers::generate_summary))

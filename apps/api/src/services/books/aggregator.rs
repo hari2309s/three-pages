@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     models::{Book, BookDetail, BookSource},
     services::books::{GoogleBooksService, GutenbergService, OpenLibraryService},
@@ -26,89 +28,51 @@ impl BookAggregatorService {
     pub async fn search(&self, query: &str, limit: usize) -> Result<Vec<Book>> {
         let per_source = (limit / 3).max(5);
 
-        let google_result = self.google_books.search(query, per_source).await;
-        let openlibrary_result = self.open_library.search(query, per_source).await;
-        let gutenberg_result = self.gutenberg.search(query, per_source).await;
-
-        let results = vec![
-            ("Google Books", google_result),
-            ("Open Library", openlibrary_result),
-            ("Gutenberg", gutenberg_result),
-        ];
+        // Search all sources concurrently
+        let (google_result, openlibrary_result, gutenberg_result) = tokio::join!(
+            self.google_books.search(query, per_source),
+            self.open_library.search(query, per_source),
+            self.gutenberg.search(query, per_source)
+        );
 
         let mut all_books = Vec::new();
 
-        for (source_name, result) in results {
-            match result {
-                Ok(books) => all_books.extend(books),
-                Err(e) => {
-                    tracing::warn!("{} search failed: {}", source_name, e);
-                }
-            }
-
-            fn get_source_priority(&self, source: &crate::models::BookSource) -> u8 {
-                match source {
-                    crate::models::BookSource::Gutenberg => 0, // Highest priority
-                    crate::models::BookSource::OpenLibrary => 1,
-                    crate::models::BookSource::Google => 2, // Lowest priority
-                }
-            }
-
-            fn create_dedup_key(&self, book: &crate::models::Book) -> String {
-                // Create a normalized key for deduplication
-                let title = book
-                    .title
-                    .to_lowercase()
-                    .trim()
-                    .replace(&[' ', '-', ':', '.', ',', ';'], "");
-                let author = book
-                    .authors
-                    .join("")
-                    .to_lowercase()
-                    .trim()
-                    .replace(&[' ', '-', ':', '.', ',', ';'], "");
-                format!("{}|{}", title, author)
-            }
+        // Collect results from each source
+        if let Ok(books) = google_result {
+            tracing::debug!("Google Books returned {} results", books.len());
+            all_books.extend(books);
+        } else if let Err(e) = google_result {
+            tracing::warn!("Google Books search failed: {}", e);
         }
 
-        // Deduplicate books by title and author, keeping the highest priority source
-        let mut deduplicated = Vec::new();
-        let mut seen_books = std::collections::HashSet::new();
-
-        // Sort by source priority first (Gutenberg > OpenLibrary > Google)
-        all_books.sort_by(|a, b| {
-            let a_priority = self.get_source_priority(&a.source);
-            let b_priority = self.get_source_priority(&b.source);
-            a_priority.cmp(&b_priority)
-        });
-
-        for book in all_books {
-            let key = self.create_dedup_key(&book);
-            if !seen_books.contains(&key) {
-                seen_books.insert(key);
-                deduplicated.push(book);
-            }
+        if let Ok(books) = openlibrary_result {
+            tracing::debug!("Open Library returned {} results", books.len());
+            all_books.extend(books);
+        } else if let Err(e) = openlibrary_result {
+            tracing::warn!("Open Library search failed: {}", e);
         }
 
-        // Final sort by source priority, then by relevance
-        deduplicated.sort_by(|a, b| {
-            let a_priority = self.get_source_priority(&a.source);
-            let b_priority = self.get_source_priority(&b.source);
+        if let Ok(books) = gutenberg_result {
+            tracing::debug!("Gutenberg returned {} results", books.len());
+            all_books.extend(books);
+        } else if let Err(e) = gutenberg_result {
+            tracing::warn!("Gutenberg search failed: {}", e);
+        }
 
-            if a_priority != b_priority {
-                return a_priority.cmp(&b_priority);
-            }
+        tracing::info!("Total books before deduplication: {}", all_books.len());
 
-            let a_score = self.calculate_relevance_score(a, query);
-            let b_score = self.calculate_relevance_score(b, query);
-            b_score
-                .partial_cmp(&a_score)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
+        // Deduplicate and prioritize
+        let deduplicated = self.deduplicate_and_prioritize(all_books, query);
 
-        deduplicated.truncate(limit);
+        // Limit results
+        let final_results: Vec<Book> = deduplicated.into_iter().take(limit).collect();
 
-        Ok(deduplicated)
+        tracing::info!(
+            "Final results after deduplication and limiting: {}",
+            final_results.len()
+        );
+
+        Ok(final_results)
     }
 
     pub async fn get_book_details(&self, id: &str) -> Result<Option<BookDetail>> {
@@ -139,6 +103,180 @@ impl BookAggregatorService {
         }
     }
 
+    fn deduplicate_and_prioritize(&self, books: Vec<Book>, query: &str) -> Vec<Book> {
+        // Group books by deduplication key
+        let mut book_groups: HashMap<String, Vec<Book>> = HashMap::new();
+
+        for book in books {
+            let key = self.create_dedup_key(&book);
+            book_groups.entry(key).or_insert_with(Vec::new).push(book);
+        }
+
+        let mut deduplicated = Vec::new();
+
+        // For each group, pick the best book based on source priority
+        for (_, mut group) in book_groups {
+            // Sort by source priority first, then by completeness/quality
+            group.sort_by(|a, b| {
+                let a_priority = self.get_source_priority(&a.source);
+                let b_priority = self.get_source_priority(&b.source);
+
+                // Lower number = higher priority
+                if a_priority != b_priority {
+                    return a_priority.cmp(&b_priority);
+                }
+
+                // If same source priority, prefer more complete records
+                let a_completeness = self.calculate_completeness_score(a);
+                let b_completeness = self.calculate_completeness_score(b);
+
+                b_completeness
+                    .partial_cmp(&a_completeness)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+
+            // Take the best book from this group
+            if let Some(best_book) = group.into_iter().next() {
+                deduplicated.push(best_book);
+            }
+        }
+
+        // Sort final results by relevance to query and source priority
+        deduplicated.sort_by(|a, b| {
+            let a_relevance = self.calculate_relevance_score(a, query);
+            let b_relevance = self.calculate_relevance_score(b, query);
+
+            // Higher relevance score comes first
+            b_relevance
+                .partial_cmp(&a_relevance)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        deduplicated
+    }
+
+    fn create_dedup_key(&self, book: &Book) -> String {
+        // Create a normalized key for deduplication based on title and primary author
+        let title = self.normalize_string(&book.title);
+        let author = if book.authors.is_empty() {
+            String::new()
+        } else {
+            self.normalize_string(&book.authors[0])
+        };
+        format!("{}|{}", title, author)
+    }
+
+    fn normalize_string(&self, s: &str) -> String {
+        s.to_lowercase()
+            .trim()
+            .replace(&[' ', '-', '_', ':', '.', ',', ';', '(', ')', '[', ']'], "")
+            .chars()
+            .filter(|c| c.is_alphanumeric())
+            .collect()
+    }
+
+    fn get_source_priority(&self, source: &BookSource) -> u8 {
+        match source {
+            BookSource::Gutenberg => 1,   // Highest priority - full text available
+            BookSource::OpenLibrary => 2, // Medium priority - good metadata
+            BookSource::Google => 3,      // Lowest priority - commercial/limited
+        }
+    }
+
+    fn calculate_completeness_score(&self, book: &Book) -> f32 {
+        let mut score = 0.0;
+
+        // Basic required fields
+        if !book.title.is_empty() {
+            score += 1.0;
+        }
+        if !book.authors.is_empty() {
+            score += 1.0;
+        }
+
+        // Additional metadata
+        if book.isbn.is_some() {
+            score += 0.5;
+        }
+        if book.cover_url.is_some() {
+            score += 0.3;
+        }
+        if book.description.is_some() {
+            score += 0.7;
+        }
+        if book.published_date.is_some() {
+            score += 0.2;
+        }
+        if book.language.is_some() {
+            score += 0.2;
+        }
+        if book.page_count.is_some() {
+            score += 0.1;
+        }
+
+        score
+    }
+
+    fn calculate_relevance_score(&self, book: &Book, query: &str) -> f32 {
+        let mut score = 0.0;
+        let query_lower = query.to_lowercase();
+
+        // Title match is most important
+        if book.title.to_lowercase().contains(&query_lower) {
+            score += 10.0;
+
+            // Exact title match gets bonus
+            if book.title.to_lowercase() == query_lower {
+                score += 5.0;
+            }
+
+            // Title starts with query gets bonus
+            if book.title.to_lowercase().starts_with(&query_lower) {
+                score += 3.0;
+            }
+        }
+
+        // Author match is second most important
+        for author in &book.authors {
+            let author_lower = author.to_lowercase();
+            if author_lower.contains(&query_lower) {
+                score += 8.0;
+
+                // Exact author match gets bonus
+                if author_lower == query_lower {
+                    score += 4.0;
+                }
+            }
+        }
+
+        // Description match
+        if let Some(desc) = &book.description {
+            if desc.to_lowercase().contains(&query_lower) {
+                score += 2.0;
+            }
+        }
+
+        // Source-based bonuses
+        match book.source {
+            BookSource::Gutenberg => score += 3.0,   // Free full-text
+            BookSource::OpenLibrary => score += 2.0, // Good metadata
+            BookSource::Google => score += 1.0,      // Commercial but comprehensive
+        }
+
+        // Quality bonuses
+        if book.cover_url.is_some() {
+            score += 0.5;
+        }
+        if book.description.is_some() {
+            score += 0.5;
+        }
+        if book.isbn.is_some() {
+            score += 0.3;
+        }
+
+        score
+    }
+
     async fn enrich_book_detail(&self, book: Book) -> BookDetail {
         let content_url = match book.source {
             BookSource::Gutenberg => {
@@ -149,7 +287,7 @@ impl BookAggregatorService {
                 ))
             }
             BookSource::OpenLibrary => {
-                // Try to get IA identifier
+                // Try to get Internet Archive identifier
                 let ol_key = book.id.replace("openlibrary:", "");
                 if let Ok(Some(ia_id)) = self.open_library.get_ia_identifier(&ol_key).await {
                     Some(format!(
@@ -174,40 +312,5 @@ impl BookAggregatorService {
             content_url,
             gutenberg_id,
         }
-    }
-
-    fn calculate_relevance_score(&self, book: &Book, query: &str) -> f32 {
-        let mut score = 0.0;
-        let query_lower = query.to_lowercase();
-
-        if book.title.to_lowercase().contains(&query_lower) {
-            score += 10.0;
-        }
-
-        for author in &book.authors {
-            if author.to_lowercase().contains(&query_lower) {
-                score += 8.0;
-            }
-        }
-
-        if let Some(desc) = &book.description {
-            if desc.to_lowercase().contains(&query_lower) {
-                score += 3.0;
-            }
-        }
-
-        if book.cover_url.is_some() {
-            score += 1.0;
-        }
-
-        if book.description.is_some() {
-            score += 1.0;
-        }
-
-        if book.source == BookSource::Gutenberg {
-            score += 2.0;
-        }
-
-        score
     }
 }

@@ -149,4 +149,8 @@ impl DatabaseService {
 
         Ok(record)
     }
+
+    pub fn pool(&self) -> &PgPool {
+        &self.pool
+    }
 }

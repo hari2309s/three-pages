@@ -1,6 +1,8 @@
 use moka::future::Cache;
 use std::time::Duration;
 
+use crate::api::handlers::CacheStats;
+
 #[derive(Clone)]
 pub struct CacheService {
     cache: Cache<String, Vec<u8>>,
@@ -40,6 +42,30 @@ impl CacheService {
     pub async fn set_json<T: serde::Serialize>(&self, key: String, value: &T) {
         if let Ok(data) = serde_json::to_vec(value) {
             self.set(key, data).await;
+        }
+    }
+
+    pub async fn invalidate_all(&self) {
+        self.cache.invalidate_all();
+        // Force immediate cleanup
+        self.cache.run_pending_tasks().await;
+    }
+
+    pub async fn get_stats(&self) -> CacheStats {
+        // Run pending tasks to get accurate stats
+        self.cache.run_pending_tasks().await;
+
+        let estimated_size = self.cache.weighted_size();
+        let entry_count = self.cache.entry_count();
+
+        // For this version of moka, hit rate stats are not available
+        // Return basic stats with 0.0 hit rate as placeholder
+        let hit_rate = 0.0;
+
+        CacheStats {
+            estimated_size,
+            entry_count,
+            hit_rate,
         }
     }
 }

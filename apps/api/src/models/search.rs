@@ -12,7 +12,7 @@ fn default_limit() -> usize {
     10
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchResponse {
     pub results: Vec<Book>,
     pub total_results: usize,

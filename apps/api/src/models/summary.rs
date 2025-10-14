@@ -20,7 +20,7 @@ fn default_language() -> String {
     "en".to_string()
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SummaryResponse {
     pub id: Uuid,
     pub summary_text: String,
@@ -30,7 +30,7 @@ pub struct SummaryResponse {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BookInfo {
     pub title: String,
     pub author: String,

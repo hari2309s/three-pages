@@ -32,6 +32,15 @@ pub enum AppError {
     #[error("External API error: {0}")]
     ExternalApi(String),
 
+    #[error("Service timeout: {0}")]
+    ServiceTimeout(String),
+
+    #[error("Service error: {0}")]
+    ServiceError(String),
+
+    #[error("Database error: {0}")]
+    DatabaseError(String),
+
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
 
@@ -66,6 +75,27 @@ impl IntoResponse for AppError {
                 (
                     StatusCode::BAD_GATEWAY,
                     "External service unavailable".to_string(),
+                )
+            }
+            AppError::ServiceTimeout(_) => {
+                tracing::error!("Service timeout: {}", self);
+                (
+                    StatusCode::REQUEST_TIMEOUT,
+                    "Service request timed out".to_string(),
+                )
+            }
+            AppError::ServiceError(_) => {
+                tracing::error!("Service error: {}", self);
+                (
+                    StatusCode::BAD_GATEWAY,
+                    "External service error".to_string(),
+                )
+            }
+            AppError::DatabaseError(_) => {
+                tracing::error!("Database error: {}", self);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Database operation failed".to_string(),
                 )
             }
             AppError::Serialization(_) => (

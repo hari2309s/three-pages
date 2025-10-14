@@ -95,35 +95,70 @@ pub async fn get_audio(
 
     let tts_service = TTSService::new(hf_client);
 
+    tracing::info!(
+        "Starting TTS generation for summary {} in language {} with {} characters",
+        summary_id,
+        query.language,
+        summary.summary_text.len()
+    );
+
     let audio_data = match tts_service
         .generate_audio(&summary.summary_text, &query.language)
         .await
     {
         Ok(data) => {
             if data.is_empty() {
-                tracing::error!("TTS service returned empty audio data");
-                return Err(AppError::ExternalApi(
-                    "Audio generation produced no data".to_string(),
+                tracing::error!(
+                    "TTS service returned empty audio data for summary {}",
+                    summary_id
+                );
+                return Err(AppError::ServiceError(
+                    "Audio generation completed but produced no audio data. Please try again."
+                        .to_string(),
                 ));
             }
+
             tracing::info!(
-                "Successfully generated audio: {} bytes for language: {}",
+                "Successfully generated audio: {} bytes for summary {} in language {}",
                 data.len(),
+                summary_id,
                 query.language
             );
             data
         }
         Err(e) => {
             tracing::error!(
-                "Audio generation failed for summary {} in language {}: {}",
+                "TTS generation failed for summary {} in language {}: {}",
                 summary_id,
                 query.language,
                 e
             );
-            return Err(AppError::ExternalApi(format!(
-                "Failed to generate audio in {}: {}",
-                query.language, e
-            )));
+
+            // Provide more user-friendly error messages based on error type
+            let user_error = match e {
+                crate::utils::errors::AppError::ExternalApi(ref msg) => {
+                    if msg.contains("Authentication") || msg.contains("401") || msg.contains("403")
+                    {
+                        "Audio service authentication failed. Please contact support.".to_string()
+                    } else if msg.contains("timeout") || msg.contains("timed out") {
+                        "Audio generation timed out. Please try again with shorter text."
+                            .to_string()
+                    } else if msg.contains("rate limit") || msg.contains("429") {
+                        "Audio service is temporarily busy. Please try again in a moment."
+                            .to_string()
+                    } else if msg.contains("model") || msg.contains("404") {
+                        "Audio generation model temporarily unavailable. Please try again later."
+                            .to_string()
+                    } else {
+                        "Audio generation service temporarily unavailable. Please try again later."
+                            .to_string()
+                    }
+                }
+                _ => "Audio generation failed due to an unexpected error. Please try again."
+                    .to_string(),
+            };
+
+            return Err(AppError::ServiceError(user_error));
         }
     };
 
@@ -135,18 +170,28 @@ pub async fn get_audio(
     let data_url = format!("data:audio/wav;base64,{}", audio_base64);
 
     if audio_base64.len() < 100 {
-        tracing::error!("Generated base64 audio data is suspiciously small");
-        return Err(AppError::ExternalApi(
-            "Generated audio data appears to be invalid".to_string(),
+        tracing::error!(
+            "Generated base64 audio data is too small ({} chars) for summary {}",
+            audio_base64.len(),
+            summary_id
+        );
+        return Err(AppError::ServiceError(
+            "Generated audio appears to be corrupted. Please try again.".to_string(),
         ));
     }
+
+    tracing::debug!(
+        "Generated base64 audio data: {} characters for summary {}",
+        audio_base64.len(),
+        summary_id
+    );
 
     let create_audio = CreateAudioFile {
         summary_id: summary_uuid,
         language: query.language.clone(),
         voice_type: query.voice_type.unwrap_or_else(|| "default".to_string()),
         file_url: data_url,
-        duration_ms: None,
+        duration_ms: Some(file_size_kb * 100), // Rough estimate: ~100ms per KB
         file_size_kb: Some(file_size_kb),
     };
 
@@ -165,7 +210,10 @@ pub async fn get_audio(
                 summary_id,
                 e
             );
-            return Err(e);
+            return Err(AppError::ServiceError(
+                "Audio was generated successfully but failed to save. Please try again."
+                    .to_string(),
+            ));
         }
     };
 

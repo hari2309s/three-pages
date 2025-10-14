@@ -14,34 +14,6 @@ pub fn validate_language(lang: &str) -> Result<()> {
     }
 }
 
-pub fn validate_isbn(isbn: &str) -> Result<()> {
-    let cleaned = isbn.replace('-', "").replace(' ', "");
-
-    if cleaned.len() == 10 {
-        validate_isbn10(&cleaned)
-    } else if cleaned.len() == 13 {
-        validate_isbn13(&cleaned)
-    } else {
-        Err(AppError::InvalidInput(
-            "ISBN must be 10 or 13 digits".to_string(),
-        ))
-    }
-}
-
-fn validate_isbn10(isbn: &str) -> Result<()> {
-    if !isbn.chars().all(|c| c.is_ascii_digit() || c == 'X') {
-        return Err(AppError::InvalidInput("Invalid ISBN-10 format".to_string()));
-    }
-    Ok(())
-}
-
-fn validate_isbn13(isbn: &str) -> Result<()> {
-    if !isbn.chars().all(|c| c.is_ascii_digit()) {
-        return Err(AppError::InvalidInput("Invalid ISBN-13 format".to_string()));
-    }
-    Ok(())
-}
-
 pub fn validate_query(query: &str) -> Result<()> {
     let trimmed = query.trim();
 

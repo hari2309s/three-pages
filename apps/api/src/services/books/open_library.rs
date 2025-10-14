@@ -9,8 +9,6 @@ use crate::{
 #[derive(Deserialize)]
 struct OpenLibraryResponse {
     docs: Vec<OpenLibraryDoc>,
-    #[serde(rename = "numFound")]
-    num_found: Option<i32>,
 }
 
 #[derive(Deserialize)]
@@ -87,42 +85,6 @@ impl OpenLibraryService {
         let doc: OpenLibraryDoc = response.json().await?;
 
         Ok(Some(self.convert_to_book(doc)))
-    }
-
-    pub async fn get_content(&self, _id: &str, ia_identifier: &str) -> Result<String> {
-        // Try to get content from Internet Archive
-        // Format: https://archive.org/download/{identifier}/{identifier}.txt
-        let url = format!(
-            "https://archive.org/download/{}/{}.txt",
-            ia_identifier, ia_identifier
-        );
-
-        tracing::info!("Attempting to fetch content from Internet Archive: {}", url);
-
-        let response = self.client.get(&url).send().await?;
-
-        if !response.status().is_success() {
-            // Try alternative format with _djvu.txt
-            let alt_url = format!(
-                "https://archive.org/download/{}/{}_djvu.txt",
-                ia_identifier, ia_identifier
-            );
-
-            tracing::info!("Trying alternative format: {}", alt_url);
-
-            let alt_response = self.client.get(&alt_url).send().await?;
-
-            if !alt_response.status().is_success() {
-                return Err(AppError::ExternalApi(format!(
-                    "Content not available from Internet Archive for {}",
-                    ia_identifier
-                )));
-            }
-
-            return Ok(alt_response.text().await?);
-        }
-
-        Ok(response.text().await?)
     }
 
     fn convert_to_book(&self, doc: OpenLibraryDoc) -> Book {

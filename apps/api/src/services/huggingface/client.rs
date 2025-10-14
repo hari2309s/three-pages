@@ -1,5 +1,5 @@
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::json;
 
 use crate::utils::errors::{AppError, Result};
@@ -381,11 +381,6 @@ impl HuggingFaceClient {
 
         Err(last_error
             .unwrap_or_else(|| AppError::ExternalApi("Unknown summarization error".to_string())))
-    }
-
-    /// Legacy summarize method for backward compatibility
-    pub async fn summarize(&self, model: &str, text: &str) -> Result<String> {
-        self.summarize_bart(model, text, 500, 50).await
     }
 }
 

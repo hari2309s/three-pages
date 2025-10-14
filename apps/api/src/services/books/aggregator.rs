@@ -88,41 +88,6 @@ impl BookAggregatorService {
         }
     }
 
-    pub async fn get_book_content(&self, id: &str) -> Result<String> {
-        let parts: Vec<&str> = id.split(':').collect();
-        if parts.len() != 2 {
-            return Err(AppError::InvalidInput("Invalid book ID format".to_string()));
-        }
-
-        let (source, book_id) = (parts[0], parts[1]);
-
-        match source {
-            "gutenberg" => {
-                let gid: i32 = book_id
-                    .parse()
-                    .map_err(|_| AppError::InvalidInput("Invalid Gutenberg ID".to_string()))?;
-                self.gutenberg.get_content(gid).await
-            }
-            "openlibrary" => {
-                match self.open_library.get_ia_identifier(book_id).await? {
-                    Some(ia_id) => {
-                        self.open_library.get_content(book_id, &ia_id).await
-                    }
-                    None => {
-                        Err(AppError::ExternalApi(
-                            "This book does not have full text available on Internet Archive".to_string()
-                        ))
-                    }
-                }
-            }
-            _ => {
-                Err(AppError::InvalidInput(
-                    "Content only available for Gutenberg and Open Library books with Internet Archive copies".to_string()
-                ))
-            }
-        }
-    }
-
     async fn enrich_book_detail(&self, book: Book) -> BookDetail {
         let content_url = match book.source {
             BookSource::Gutenberg => {

@@ -1,14 +1,7 @@
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use sqlx::FromRow;
 use uuid::Uuid;
-
-#[derive(Debug, Deserialize)]
-pub struct AudioRequest {
-    pub language: String,
-    #[serde(default)]
-    pub voice_type: Option<String>,
-}
 
 #[derive(Debug, Serialize)]
 pub struct AudioResponse {

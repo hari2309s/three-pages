@@ -17,7 +17,7 @@ struct GutenbergBook {
     title: String,
     authors: Vec<Author>,
     subjects: Vec<String>,
-    bookshelves: Vec<String>,
+
     languages: Vec<String>,
     formats: std::collections::HashMap<String, String>,
 }
@@ -89,22 +89,6 @@ impl GutenbergService {
         let book: GutenbergBook = response.json().await?;
 
         Ok(Some(self.convert_to_book(book)))
-    }
-
-    pub async fn get_content(&self, id: i32) -> Result<String> {
-        let url = format!("https://www.gutenberg.org/files/{}/{}-0.txt", id, id);
-
-        let response = self.client.get(&url).send().await?;
-
-        if !response.status().is_success() {
-            return Err(AppError::ExternalApi(format!(
-                "Could not fetch book content: {}",
-                response.status()
-            )));
-        }
-
-        let content = response.text().await?;
-        Ok(content)
     }
 
     fn convert_to_book(&self, book: GutenbergBook) -> Book {

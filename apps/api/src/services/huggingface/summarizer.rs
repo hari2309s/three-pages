@@ -6,11 +6,6 @@ const SUMMARIZATION_MODEL: &str = "facebook/bart-large-cnn";
 // Language-specific models and prompts
 const MULTILINGUAL_MODEL: &str = "facebook/mbart-large-50-many-to-many-mmt";
 
-// Target words for 3 pages (500-600 words per page)
-const TARGET_FINAL_WORDS: usize = 1650; // Middle of 1500-1800 range
-const MIN_FINAL_WORDS: usize = 1500;
-const MAX_FINAL_WORDS: usize = 1800;
-
 pub struct SummarizerService {
     client: HuggingFaceClient,
 }
@@ -130,136 +125,6 @@ impl SummarizerService {
         }
 
         Ok(summaries)
-    }
-
-    /// Combine chunk summaries into section summaries (Level 2)
-    async fn combine_into_sections(
-        &self,
-        chunk_summaries: &[String],
-        language: &str,
-        style: &str,
-    ) -> Result<Vec<String>> {
-        if chunk_summaries.len() <= 3 {
-            // If we have 3 or fewer summaries, skip this level
-            return Ok(chunk_summaries.to_vec());
-        }
-
-        let mut section_summaries = Vec::new();
-
-        // Group chunks into sections (3-4 chunks per section)
-        let chunks_per_section = 3;
-
-        for section_chunks in chunk_summaries.chunks(chunks_per_section) {
-            let combined = section_chunks.join("\n\n");
-
-            let summary_result = if language == "en" {
-                // Use BART for English
-                self.client
-                    .summarize_bart(SUMMARIZATION_MODEL, &combined, 300, 100)
-                    .await
-            } else {
-                // Use multilingual approach for other languages
-                self.multilingual_summarize(&combined, language, style, 300, 100)
-                    .await
-            };
-
-            match summary_result {
-                Ok(summary) => {
-                    section_summaries.push(self.clean_summary(&summary));
-                }
-                Err(e) => {
-                    tracing::warn!("Failed to combine section in {}: {}", language, e);
-                    // Fall back to using the chunks directly
-                    section_summaries.push(combined);
-                }
-            }
-        }
-
-        Ok(section_summaries)
-    }
-
-    /// Create final 3-page summary (Level 3)
-    async fn create_final_summary(
-        &self,
-        section_summaries: &[String],
-        language: &str,
-        style: &str,
-    ) -> Result<String> {
-        let combined = section_summaries.join("\n\n");
-
-        // Calculate target length in tokens (roughly 1.3 tokens per word)
-        let target_tokens = (TARGET_FINAL_WORDS as f32 * 1.3) as usize;
-        let min_tokens = (MIN_FINAL_WORDS as f32 * 1.3) as usize;
-
-        // Use language-specific summarization
-        let summary_result = if language == "en" {
-            // Use BART for English
-            self.client
-                .summarize_bart(SUMMARIZATION_MODEL, &combined, target_tokens, min_tokens)
-                .await
-        } else {
-            // Use multilingual approach for other languages
-            self.multilingual_summarize(&combined, language, style, target_tokens, min_tokens)
-                .await
-        };
-
-        match summary_result {
-            Ok(summary) => {
-                let final_text = self.clean_summary(&summary);
-                let word_count = final_text.split_whitespace().count();
-
-                // If summary is too short, try to expand it
-                if word_count < MIN_FINAL_WORDS && section_summaries.len() > 1 {
-                    tracing::info!("Summary too short ({}), attempting expansion", word_count);
-                    return self
-                        .expand_summary_multilingual(section_summaries, language)
-                        .await;
-                }
-
-                Ok(final_text)
-            }
-            Err(e) => {
-                tracing::error!("Failed to create final summary: {}", e);
-                // Fallback: combine sections with some formatting
-                Ok(self.format_sections(section_summaries))
-            }
-        }
-    }
-
-    /// Expand summary if it's too short
-    async fn expand_summary(&self, section_summaries: &[String]) -> Result<String> {
-        // Use larger target for expansion
-        let combined = section_summaries.join("\n\n");
-        let target_tokens = (MAX_FINAL_WORDS as f32 * 1.3) as usize;
-        let min_tokens = (TARGET_FINAL_WORDS as f32 * 1.3) as usize;
-
-        match self
-            .client
-            .summarize_bart(SUMMARIZATION_MODEL, &combined, target_tokens, min_tokens)
-            .await
-        {
-            Ok(summary) => Ok(self.clean_summary(&summary)),
-            Err(_) => Ok(self.format_sections(section_summaries)),
-        }
-    }
-
-    /// Expand summary if it's too short (multilingual version)
-    async fn expand_summary_multilingual(
-        &self,
-        section_summaries: &[String],
-        language: &str,
-    ) -> Result<String> {
-        let combined = section_summaries.join("\n\n");
-        let target_tokens = (MAX_FINAL_WORDS as f32 * 1.3) as usize;
-        let min_tokens = (TARGET_FINAL_WORDS as f32 * 1.3) as usize;
-
-        match self
-            .multilingual_summarize(&combined, language, "detailed", target_tokens, min_tokens)
-            .await
-        {
-            Ok(summary) => Ok(self.clean_summary(&summary)),
-            Err(_) => Ok(self.format_sections(section_summaries)),
-        }
     }
 
     /// Multilingual summarization using text generation with language-specific prompts
@@ -420,22 +285,6 @@ impl SummarizerService {
             "ta" => "சுருக்கத்திற்கு எந்த உள்ளடக்கமும் இல்லை.".to_string(),
             _ => "No content available for summarization.".to_string(),
         }
-    }
-
-    /// Format sections as fallback
-    fn format_sections(&self, sections: &[String]) -> String {
-        sections
-            .iter()
-            .enumerate()
-            .map(|(i, section)| {
-                if sections.len() > 3 {
-                    format!("Part {}: {}", i + 1, section)
-                } else {
-                    section.clone()
-                }
-            })
-            .collect::<Vec<_>>()
-            .join("\n\n")
     }
 
     /// Smart chunking by paragraphs to maintain context

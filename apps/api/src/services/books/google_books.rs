@@ -9,8 +9,6 @@ use crate::{
 #[derive(Deserialize)]
 struct GoogleBooksResponse {
     items: Option<Vec<BookItem>>,
-    #[serde(rename = "totalItems")]
-    total_items: Option<u32>,
 }
 
 #[derive(Deserialize)]

@@ -1,9 +1,9 @@
-use sqlx::{PgPool, postgres::PgPoolOptions};
+use sqlx::{postgres::PgPoolOptions, PgPool};
 use uuid::Uuid;
 
 use crate::{
     models::{AudioFile, CreateAudioFile, CreateSummary, Summary},
-    utils::errors::{AppError, Result},
+    utils::errors::Result,
 };
 
 #[derive(Clone)]

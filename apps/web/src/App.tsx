@@ -190,18 +190,40 @@ function AppContent() {
                                   {audio.isPending ? (
                                     <div className="flex items-center justify-center gap-2">
                                       <LoadingSpinner size="sm" />
-                                      <span>Generating Audio...</span>
+                                      <span>
+                                        Generating Audio (this may take 30-60
+                                        seconds)...
+                                      </span>
                                     </div>
                                   ) : (
-                                    "Generate Audio"
+                                    "🔊 Generate Audio"
                                   )}
                                 </Button>
 
-                                {audio.isError && (
+                                {(audio.isError || audio.audioError) && (
                                   <AnimatedContainer variant="fade">
-                                    <ErrorMessage
-                                      message={audio.error.message}
-                                    />
+                                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                      <div className="flex items-start gap-3">
+                                        <div className="text-red-500 mt-0.5">
+                                          ⚠️
+                                        </div>
+                                        <div>
+                                          <h4 className="text-red-800 font-medium mb-1">
+                                            Audio Generation Failed
+                                          </h4>
+                                          <p className="text-red-700 text-sm">
+                                            {audio.audioError ||
+                                              audio.error?.message ||
+                                              "Audio generation failed"}
+                                          </p>
+                                          <p className="text-red-600 text-xs mt-2">
+                                            💡 Try generating the audio again,
+                                            or contact support if the problem
+                                            persists.
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
                                   </AnimatedContainer>
                                 )}
 
@@ -211,6 +233,18 @@ function AppContent() {
                                       key="audio-player"
                                       variant="scale"
                                     >
+                                      <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                                        <div className="flex items-center gap-2 text-green-800 text-sm mb-2">
+                                          <span>✅</span>
+                                          <span>
+                                            Audio generated successfully!
+                                          </span>
+                                        </div>
+                                        <p className="text-green-700 text-xs">
+                                          Audio size: {audio.data.file_size_kb}
+                                          KB • Language: {audio.data.language}
+                                        </p>
+                                      </div>
                                       <AudioPlayer
                                         isPlaying={audio.isPlaying}
                                         currentTime={audio.currentTime}

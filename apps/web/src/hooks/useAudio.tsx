@@ -20,6 +20,51 @@ export const useAudio = () => {
   const mutation = useMutation<AudioResponse, Error, AudioMutationArgs>({
     mutationFn: ({ summaryId, language, voiceType }) =>
       audioService.getAudio(summaryId, language, voiceType),
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
+    onError: (error) => {
+      console.error("Audio generation failed:", error);
+
+      // Set more user-friendly error messages
+      if (error.message.includes("timeout")) {
+        setAudioError(
+          "Audio generation timed out. Please try again with shorter text.",
+        );
+      } else if (
+        error.message.includes("429") ||
+        error.message.includes("rate limit")
+      ) {
+        setAudioError(
+          "Audio service is busy. Please wait a moment and try again.",
+        );
+      } else if (
+        error.message.includes("401") ||
+        error.message.includes("403")
+      ) {
+        setAudioError(
+          "Authentication error. Please refresh the page and try again.",
+        );
+      } else if (
+        error.message.includes("500") ||
+        error.message.includes("502") ||
+        error.message.includes("503")
+      ) {
+        setAudioError(
+          "Audio service temporarily unavailable. Please try again later.",
+        );
+      } else if (
+        error.message.includes("network") ||
+        error.message.includes("fetch")
+      ) {
+        setAudioError(
+          "Network error. Please check your connection and try again.",
+        );
+      } else {
+        setAudioError(
+          "Audio generation failed. Please try again or contact support if the problem persists.",
+        );
+      }
+    },
     onSuccess: (data) => {
       console.log("Audio data received:", {
         id: data.id,
@@ -30,8 +75,23 @@ export const useAudio = () => {
 
       // Validate audio URL
       if (!data.audio_url || !data.audio_url.startsWith("data:audio/")) {
-        const error = "Invalid audio data format received from server";
-        console.error(error, { audioUrl: data.audio_url?.substring(0, 50) });
+        const error =
+          "Audio was generated but in an invalid format. Please try again.";
+        console.error("Invalid audio format:", {
+          audioUrl: data.audio_url?.substring(0, 50),
+          hasAudioUrl: !!data.audio_url,
+          startsWithData: data.audio_url?.startsWith("data:") || false,
+        });
+        setAudioError(error);
+        return;
+      }
+
+      // Additional validation for audio data length
+      if (data.audio_url.length < 200) {
+        const error = "Audio file appears to be too small. Please try again.";
+        console.error("Audio data too small:", {
+          length: data.audio_url.length,
+        });
         setAudioError(error);
         return;
       }
@@ -71,22 +131,33 @@ export const useAudio = () => {
             setDuration(audioDuration);
           },
           onloaderror: (id, error) => {
-            const errorMsg = `Failed to load audio: ${error}`;
-            console.error(errorMsg, { id, error });
+            const errorMsg =
+              "Failed to load audio file. The audio may be corrupted. Please try generating it again.";
+            console.error("Howl load error:", {
+              id,
+              error,
+              audioUrlLength: data.audio_url?.length,
+            });
             setAudioError(errorMsg);
           },
           onplayerror: (id, error) => {
-            const errorMsg = `Failed to play audio: ${error}`;
-            console.error(errorMsg, { id, error });
+            const errorMsg =
+              "Failed to play audio. Please try refreshing the page and generating the audio again.";
+            console.error("Howl play error:", { id, error });
             setAudioError(errorMsg);
             setIsPlaying(false);
           },
         });
       } catch (error) {
-        const errorMsg = `Error creating Howl instance: ${error}`;
-        console.error(errorMsg);
+        const errorMsg =
+          "Failed to initialize audio player. Please try refreshing the page.";
+        console.error("Howl creation error:", error);
         setAudioError(errorMsg);
       }
+    },
+    onMutate: () => {
+      // Clear any previous audio errors when starting new generation
+      setAudioError(null);
     },
   });
 
@@ -101,20 +172,50 @@ export const useAudio = () => {
   }, [isPlaying]);
 
   const play = () => {
-    howlRef.current?.play();
+    if (!howlRef.current) {
+      setAudioError("No audio loaded. Please generate audio first.");
+      return;
+    }
+
+    try {
+      howlRef.current.play();
+      setAudioError(null); // Clear any previous playback errors
+    } catch (error) {
+      console.error("Error playing audio:", error);
+      setAudioError("Failed to start playback. Please try again.");
+    }
   };
 
   const pause = () => {
-    howlRef.current?.pause();
+    if (!howlRef.current) return;
+
+    try {
+      howlRef.current.pause();
+    } catch (error) {
+      console.error("Error pausing audio:", error);
+    }
   };
 
   const stop = () => {
-    howlRef.current?.stop();
+    if (!howlRef.current) return;
+
+    try {
+      howlRef.current.stop();
+      setCurrentTime(0);
+    } catch (error) {
+      console.error("Error stopping audio:", error);
+    }
   };
 
   const seek = (time: number) => {
-    howlRef.current?.seek(time);
-    setCurrentTime(time);
+    if (!howlRef.current) return;
+
+    try {
+      howlRef.current.seek(time);
+      setCurrentTime(time);
+    } catch (error) {
+      console.error("Error seeking audio:", error);
+    }
   };
 
   useEffect(() => {

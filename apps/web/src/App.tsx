@@ -4,7 +4,7 @@ import { AnimatePresence } from "framer-motion";
 import { Layout } from "@/components/layout";
 import { SearchBar, SearchResults } from "@/components/search";
 import { BookDetail } from "@/components/book";
-import { LanguageSelector, SummaryCard } from "@/components/summary";
+import { StyleSelector, SummaryCard } from "@/components/summary";
 import { AudioPlayer } from "@/components/audio";
 import { LoadingSpinner, ErrorMessage, Button } from "@three-pages/ui";
 import { useBookSearch, useAudio, useBookDetail, useSummary } from "@/hooks";
@@ -26,7 +26,6 @@ const queryClient = new QueryClient({
 
 function AppContent() {
   const [selectedBookId, setSelectedBookId] = useState<string>();
-  const [summaryLanguage, setSummaryLanguage] = useState("en");
   const [summaryStyle, setSummaryStyle] = useState("concise");
 
   const searchMutation = useBookSearch();
@@ -54,7 +53,7 @@ function AppContent() {
     summaryMutation.mutate({
       bookId: selectedBookId,
       request: {
-        language: summaryLanguage,
+        language: "en",
         style: summaryStyle,
       },
     });
@@ -65,7 +64,7 @@ function AppContent() {
 
     audio.mutate({
       summaryId: summaryMutation.data.id,
-      language: summaryLanguage,
+      language: "en",
     });
   };
 
@@ -125,12 +124,7 @@ function AppContent() {
                 ) : bookDetail ? (
                   <>
                     <AnimatedContainer variant="scale">
-                      <BookDetail
-                        book={bookDetail}
-                        onGenerateSummary={() => {
-                          // Show summary options
-                        }}
-                      />
+                      <BookDetail book={bookDetail} />
                     </AnimatedContainer>
 
                     {bookDetail.content_url && (
@@ -140,24 +134,23 @@ function AppContent() {
                         className="space-y-4"
                       >
                         <AnimatedContainer variant="fade">
-                          <LanguageSelector
-                            selectedLanguage={summaryLanguage}
-                            selectedStyle={summaryStyle}
-                            onLanguageChange={setSummaryLanguage}
-                            onStyleChange={setSummaryStyle}
-                          />
-                        </AnimatedContainer>
-
-                        <AnimatedContainer variant="scale">
-                          <Button
-                            onClick={handleGenerateSummary}
-                            disabled={summaryMutation.isPending}
-                            className="w-full"
-                          >
-                            {summaryMutation.isPending
-                              ? "Generating Summary..."
-                              : "Generate Summary"}
-                          </Button>
+                          <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+                            <StyleSelector
+                              selectedStyle={summaryStyle}
+                              onStyleChange={setSummaryStyle}
+                            />
+                            <div className="flex-1">
+                              <Button
+                                onClick={handleGenerateSummary}
+                                disabled={summaryMutation.isPending}
+                                className="w-full"
+                              >
+                                {summaryMutation.isPending
+                                  ? "Generating Summary..."
+                                  : "Generate Summary"}
+                              </Button>
+                            </div>
+                          </div>
                         </AnimatedContainer>
 
                         {summaryMutation.isError && (

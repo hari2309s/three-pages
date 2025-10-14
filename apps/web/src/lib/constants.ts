@@ -1,9 +1,3 @@
-export const SUPPORTED_LANGUAGES = [
-  { code: "en", name: "English", flag: "🇺🇸" },
-  { code: "de", name: "German", flag: "🇩🇪" },
-  { code: "ta", name: "Tamil", flag: "🇮🇳" },
-];
-
 export const SUMMARY_STYLES = [
   { value: "concise", label: "Concise", description: "Brief and to the point" },
   {

@@ -12,9 +12,7 @@ export const Header = () => {
           />
           <div>
             <h1 className="text-2xl font-bold text-header">Three Pages</h1>
-            <p className="text-sm text-header/80">
-              AI-powered book summaries in multiple languages
-            </p>
+            <p className="text-sm text-header/80">AI-powered book summaries</p>
           </div>
         </div>
       </div>

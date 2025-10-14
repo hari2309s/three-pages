@@ -1,2 +1,2 @@
-export * from "./LanguageSelector";
+export { StyleSelector } from "./StyleSelector";
 export * from "./SummaryCard";

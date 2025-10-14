@@ -12,10 +12,9 @@ import type { BookDetail as BookDetailType } from "@/types";
 
 interface BookDetailProps {
   book: BookDetailType;
-  onGenerateSummary: () => void;
 }
 
-export const BookDetail = ({ book, onGenerateSummary }: BookDetailProps) => {
+export const BookDetail = ({ book }: BookDetailProps) => {
   return (
     <AnimatedCard hover={false} tap={false}>
       <CardHeader>
@@ -153,34 +152,23 @@ export const BookDetail = ({ book, onGenerateSummary }: BookDetailProps) => {
               </AnimatedContainer>
             )}
 
-            <AnimatedContainer
-              variant="container"
-              staggerChildren={true}
-              className="flex flex-wrap gap-2"
-            >
-              {book.content_url && (
-                <AnimatedContainer variant="scale">
-                  <Button onClick={onGenerateSummary}>Generate Summary</Button>
-                </AnimatedContainer>
-              )}
-              {book.preview_link && (
-                <AnimatedContainer variant="scale">
-                  <a
-                    href={book.preview_link}
-                    target="_blank"
-                    rel="noopener noreferrer"
+            {book.preview_link && (
+              <AnimatedContainer variant="scale">
+                <a
+                  href={book.preview_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button
+                    variant="outline"
+                    className="inline-flex items-center gap-2"
                   >
-                    <Button
-                      variant="outline"
-                      className="inline-flex items-center gap-2"
-                    >
-                      Preview
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                  </a>
-                </AnimatedContainer>
-              )}
-            </AnimatedContainer>
+                    Preview
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                </a>
+              </AnimatedContainer>
+            )}
 
             {!book.content_url && (
               <AnimatedContainer variant="fade">

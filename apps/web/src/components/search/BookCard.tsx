@@ -1,4 +1,10 @@
-import { Book as BookIcon } from "lucide-react";
+import {
+  Book as BookIcon,
+  Globe,
+  Library,
+  Sparkles,
+  FileText,
+} from "lucide-react";
 import {
   Button,
   CardContent,
@@ -17,6 +23,57 @@ interface BookCardProps {
 }
 
 export const BookCard = ({ book, onSelect }: BookCardProps) => {
+  const getSourceIcon = (source: string) => {
+    switch (source) {
+      case "gutenberg":
+        return {
+          icon: Library,
+          label: "Project Gutenberg",
+          color: "text-green-600",
+        };
+      case "openlibrary":
+        return { icon: Globe, label: "Open Library", color: "text-blue-600" };
+      default:
+        return {
+          icon: BookIcon,
+          label: "Google Books",
+          color: "text-gray-600",
+        };
+    }
+  };
+
+  const sourceInfo = getSourceIcon(book.source);
+  const getSummarizationStatus = (source: string) => {
+    switch (source) {
+      case "gutenberg":
+        return {
+          available: true,
+          label: "Summarizable",
+          bgColor: "bg-green-100",
+          textColor: "text-green-800",
+          icon: Sparkles,
+        };
+      case "openlibrary":
+        return {
+          available: true,
+          label: "May be summarizable",
+          bgColor: "bg-yellow-100",
+          textColor: "text-yellow-800",
+          icon: FileText,
+        };
+      default:
+        return {
+          available: false,
+          label: "",
+          bgColor: "",
+          textColor: "",
+          icon: null,
+        };
+    }
+  };
+
+  const summaryStatus = getSummarizationStatus(book.source);
+
   return (
     <AnimatedCard
       hover={true}
@@ -46,6 +103,24 @@ export const BookCard = ({ book, onSelect }: BookCardProps) => {
             )}
           </AnimatedContainer>
           <AnimatedContainer variant="fade" className="flex-1">
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <div className="flex items-center gap-2">
+                <sourceInfo.icon className={`h-4 w-4 ${sourceInfo.color}`} />
+                <span className={`text-xs ${sourceInfo.color} font-medium`}>
+                  {sourceInfo.label}
+                </span>
+              </div>
+              {summaryStatus.available && (
+                <div
+                  className={`flex items-center gap-1 ${summaryStatus.bgColor} ${summaryStatus.textColor} px-2 py-1 rounded-full text-xs`}
+                >
+                  {summaryStatus.icon && (
+                    <summaryStatus.icon className="h-3 w-3" />
+                  )}
+                  <span>{summaryStatus.label}</span>
+                </div>
+              )}
+            </div>
             <AnimatedText
               as="h3"
               className="text-lg line-clamp-2 font-semibold"

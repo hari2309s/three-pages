@@ -24,7 +24,7 @@ export const SearchBar = ({ onSearch, isLoading }: SearchBarProps) => {
         <AnimatedContainer
           variant="container"
           staggerChildren={true}
-          className="flex gap-5"
+          className="flex flex-col sm:flex-row gap-3 sm:gap-5"
         >
           <AnimatedContainer variant="fade" className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
@@ -45,7 +45,12 @@ export const SearchBar = ({ onSearch, isLoading }: SearchBarProps) => {
               }}
             />
           </AnimatedContainer>
-          <Button type="submit" disabled={!query.trim() || isLoading} size="lg">
+          <Button
+            type="submit"
+            disabled={!query.trim() || isLoading}
+            size="lg"
+            className="w-full sm:w-auto"
+          >
             Search
           </Button>
         </AnimatedContainer>

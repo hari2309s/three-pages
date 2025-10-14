@@ -114,11 +114,21 @@ export const SearchResults = ({
         staggerDelay={0.08}
         className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3"
       >
-        {results.results.map((book, index) => (
-          <AnimatedListItem key={book.id} index={index}>
-            <BookCard book={book} onSelect={onSelectBook} />
-          </AnimatedListItem>
-        ))}
+        {[...results.results]
+          .sort((a, b) => {
+            // Sort by source priority: gutenberg > openlibrary > others
+            const sourceOrder: Record<string, number> = {
+              gutenberg: 0,
+              openlibrary: 1,
+              google: 2,
+            };
+            return (sourceOrder[a.source] || 3) - (sourceOrder[b.source] || 3);
+          })
+          .map((book, index) => (
+            <AnimatedListItem key={book.id} index={index}>
+              <BookCard book={book} onSelect={onSelectBook} />
+            </AnimatedListItem>
+          ))}
       </AnimatedList>
 
       <AnimatedText

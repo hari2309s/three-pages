@@ -1,5 +1,5 @@
 use axum::{
-    routing::{get, post},
+    routing::{delete, get, post},
     Router,
 };
 
@@ -14,6 +14,7 @@ pub fn create_router(state: AppState) -> Router {
         .route("/api/books/:id", get(handlers::get_book))
         .route("/api/books/:id/summary", post(handlers::generate_summary))
         .route("/api/summary/:id/audio", get(handlers::get_audio))
+        .route("/api/cache/clear", delete(handlers::clear_cache))
         .layer(cors)
         .with_state(state)
 }

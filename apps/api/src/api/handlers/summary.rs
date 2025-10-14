@@ -27,13 +27,36 @@ pub async fn generate_summary(
     validators::validate_language(&payload.language)?;
     validators::validate_style(&payload.style)?;
 
-    let cache_key = format!("summary:{}:{}", book_id, payload.max_pages.unwrap_or(3));
+    let cache_key = format!(
+        "summary:{}:{}:{}",
+        book_id,
+        payload.max_pages.unwrap_or(3),
+        payload.style
+    );
+
+    tracing::info!(
+        "Processing summary request - Book: {}, Style: {}, Max Pages: {}, Cache Key: {}",
+        book_id,
+        payload.style,
+        payload.max_pages.unwrap_or(3),
+        cache_key
+    );
 
     // Check cache first
     if let Some(cached) = state.cache.get_json::<SummaryResponse>(&cache_key).await {
-        tracing::info!("Returning cached summary for book: {}", book_id);
+        tracing::info!(
+            "Returning cached summary for book: {} with style: {} (cache hit)",
+            book_id,
+            payload.style
+        );
         return Ok(Json(cached));
     }
+
+    tracing::info!(
+        "No cached summary found for book: {} with style: {} - generating new summary",
+        book_id,
+        payload.style
+    );
 
     // Initialize book services
     let google_books = GoogleBooksService::new(
@@ -120,8 +143,13 @@ pub async fn generate_summary(
     let response = summary.to_response();
 
     // Cache the result
-    state.cache.set_json(cache_key, &response).await;
+    state.cache.set_json(cache_key.clone(), &response).await;
 
-    tracing::info!("Generated summary for book: {}", book_id);
+    tracing::info!(
+        "Generated and cached summary for book: {} with style: {} (cache key: {})",
+        book_id,
+        payload.style,
+        cache_key
+    );
     Ok(Json(response))
 }

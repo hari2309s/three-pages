@@ -3,6 +3,11 @@ use crate::{services::huggingface::client::HuggingFaceClient, utils::errors::Res
 // Switch to BART for better book summarization
 const SUMMARIZATION_MODEL: &str = "facebook/bart-large-cnn";
 
+struct StyleParameters {
+    target_tokens: usize,
+    min_tokens: usize,
+}
+
 pub struct SummarizerService {
     client: HuggingFaceClient,
 }
@@ -19,7 +24,11 @@ impl SummarizerService {
             return Ok(self.get_fallback_message(language));
         }
 
-        tracing::info!("Starting fast summarization for language: {}", language);
+        tracing::info!(
+            "Starting fast summarization for language: {} with style: {}",
+            language,
+            style
+        );
 
         // Step 1: Clean the content
         let cleaned_content = self.clean_project_gutenberg_text(content);
@@ -30,9 +39,22 @@ impl SummarizerService {
         // For shorter content, skip chunking and summarize directly
         if word_count <= 2000 {
             tracing::info!("Content is short enough for direct summarization");
+            let style_params = self.get_style_parameters(style);
+            tracing::info!(
+                "Using style '{}' with {} target tokens, {} min tokens",
+                style,
+                style_params.target_tokens,
+                style_params.min_tokens
+            );
+            let styled_content = self.add_style_instruction(&cleaned_content, style);
             return self
                 .client
-                .summarize_bart(SUMMARIZATION_MODEL, &cleaned_content, 800, 200)
+                .summarize_bart(
+                    SUMMARIZATION_MODEL,
+                    &styled_content,
+                    style_params.target_tokens,
+                    style_params.min_tokens,
+                )
                 .await;
         }
 
@@ -40,7 +62,7 @@ impl SummarizerService {
         let chunks = self.smart_chunk_by_paragraphs(&cleaned_content, 1500);
 
         if chunks.is_empty() {
-            return Ok(self.fallback_summary(&cleaned_content));
+            return Ok(self.fallback_summary(&cleaned_content, style));
         }
 
         tracing::info!("Split into {} chunks for processing", chunks.len());
@@ -49,18 +71,31 @@ impl SummarizerService {
         let chunk_summaries = self.summarize_chunks(&chunks, language, style).await?;
 
         if chunk_summaries.is_empty() {
-            return Ok(self.fallback_summary(&cleaned_content));
+            return Ok(self.fallback_summary(&cleaned_content, style));
         }
 
         tracing::info!("Generated {} chunk summaries", chunk_summaries.len());
 
         // Step 4: Create final summary directly from chunk summaries
         let combined_summaries = chunk_summaries.join("\n\n");
+        let style_params = self.get_style_parameters(style);
+        tracing::info!(
+            "Applying final summarization with style '{}': {} target tokens, {} min tokens",
+            style,
+            style_params.target_tokens,
+            style_params.min_tokens
+        );
+        let styled_content = self.add_style_instruction(&combined_summaries, style);
         let final_summary = self
             .client
-            .summarize_bart(SUMMARIZATION_MODEL, &combined_summaries, 1200, 300)
+            .summarize_bart(
+                SUMMARIZATION_MODEL,
+                &styled_content,
+                style_params.target_tokens,
+                style_params.min_tokens,
+            )
             .await
-            .unwrap_or_else(|_| self.fallback_summary(&combined_summaries));
+            .unwrap_or_else(|_| self.fallback_summary(&combined_summaries, style));
 
         let word_count = final_summary.split_whitespace().count();
         tracing::info!(
@@ -77,7 +112,7 @@ impl SummarizerService {
         &self,
         chunks: &[String],
         _language: &str,
-        _style: &str,
+        style: &str,
     ) -> Result<Vec<String>> {
         let mut summaries = Vec::new();
 
@@ -85,9 +120,16 @@ impl SummarizerService {
         let max_chunks = 4.min(chunks.len());
 
         for (i, chunk) in chunks.iter().take(max_chunks).enumerate() {
+            let chunk_params = self.get_chunk_style_parameters(style);
+            let styled_chunk = self.add_style_instruction(chunk, style);
             let summary_result = self
                 .client
-                .summarize_bart(SUMMARIZATION_MODEL, chunk, 200, 50)
+                .summarize_bart(
+                    SUMMARIZATION_MODEL,
+                    &styled_chunk,
+                    chunk_params.target_tokens,
+                    chunk_params.min_tokens,
+                )
                 .await;
 
             match summary_result {
@@ -111,6 +153,62 @@ impl SummarizerService {
 
     fn get_fallback_message(&self, _language: &str) -> String {
         "No content available for summarization.".to_string()
+    }
+
+    fn get_style_parameters(&self, style: &str) -> StyleParameters {
+        match style {
+            "detailed" => StyleParameters {
+                target_tokens: 1500,
+                min_tokens: 400,
+            },
+            "academic" => StyleParameters {
+                target_tokens: 1300,
+                min_tokens: 350,
+            },
+            "simple" => StyleParameters {
+                target_tokens: 1000,
+                min_tokens: 250,
+            },
+            _ => StyleParameters {
+                // concise
+                target_tokens: 800,
+                min_tokens: 200,
+            },
+        }
+    }
+
+    fn get_chunk_style_parameters(&self, style: &str) -> StyleParameters {
+        match style {
+            "detailed" => StyleParameters {
+                target_tokens: 300,
+                min_tokens: 80,
+            },
+            "academic" => StyleParameters {
+                target_tokens: 250,
+                min_tokens: 70,
+            },
+            "simple" => StyleParameters {
+                target_tokens: 180,
+                min_tokens: 50,
+            },
+            _ => StyleParameters {
+                // concise
+                target_tokens: 150,
+                min_tokens: 40,
+            },
+        }
+    }
+
+    fn add_style_instruction(&self, text: &str, style: &str) -> String {
+        let instruction = match style {
+            "detailed" => "INSTRUCTION: Write a comprehensive, in-depth summary that covers all major themes, character development, plot points, literary devices, and contextual significance. Include specific examples, quotes, and detailed analysis. Aim for thorough coverage with rich descriptions and explanations. Use sophisticated vocabulary and complex sentence structures:",
+            "academic" => "INSTRUCTION: Compose a formal, scholarly analysis in academic style. Use formal language, analytical frameworks, critical theory perspectives, and structured argumentation. Include discussion of literary merit, historical context, thematic significance, and scholarly interpretations. Maintain objective, analytical tone throughout:",
+            "simple" => "INSTRUCTION: Write a clear, straightforward summary using simple words and short sentences. Explain everything in an easy-to-understand way, as if writing for someone who is new to reading literature. Avoid complex vocabulary and focus on basic plot and main ideas:",
+            _ => "INSTRUCTION: Create a brief, focused summary that captures only the most essential plot points and main themes. Be direct and concise, highlighting key events and core messages without unnecessary detail:", // concise
+        };
+
+        tracing::debug!("Applied '{}' style instruction to content", style);
+        format!("{}\n\n{}", instruction, text)
     }
 
     /// Smart chunking by paragraphs to maintain context
@@ -258,7 +356,20 @@ impl SummarizerService {
     }
 
     /// Fallback summary for very short content
-    fn fallback_summary(&self, content: &str) -> String {
+    fn fallback_summary(&self, content: &str, style: &str) -> String {
+        let sentence_count = match style {
+            "detailed" => 20,
+            "academic" => 18,
+            "simple" => 12,
+            _ => 15, // concise
+        };
+
+        tracing::info!(
+            "Using fallback summary with style '{}' and {} sentence limit",
+            style,
+            sentence_count
+        );
+
         let sentences: Vec<&str> = content
             .split(&['.', '!', '?'])
             .filter(|s| {
@@ -267,13 +378,24 @@ impl SummarizerService {
                     && !trimmed.contains("Project Gutenberg")
                     && !trimmed.starts_with("CHAPTER")
             })
-            .take(15)
+            .take(sentence_count)
             .collect();
 
         if sentences.is_empty() {
-            "This literary work offers engaging storytelling with memorable characters and explores meaningful themes that resonate with readers.".to_string()
+            let default_message = match style {
+                "detailed" => "This comprehensive literary work presents an intricate narrative structure with well-developed characters, exploring complex themes through detailed storytelling techniques. The author employs various literary devices to create a rich reading experience that engages with profound questions and offers multiple layers of meaning for readers to discover and analyze.",
+                "academic" => "This literary work demonstrates significant artistic merit through its sophisticated narrative construction and thematic complexity. The text employs established literary conventions while contributing to broader cultural and intellectual discourse within its genre and historical context.",
+                "simple" => "This book tells an interesting story with good characters. It's easy to read and has important ideas that help readers learn and think about life.",
+                _ => "This literary work offers engaging storytelling with memorable characters and explores meaningful themes that resonate with readers.", // concise
+            };
+            default_message.to_string()
         } else {
-            sentences.join(". ").trim().to_string() + "."
+            let joined = sentences.join(". ").trim().to_string() + ".";
+            match style {
+                "detailed" | "academic" => format!("This work presents: {}", joined),
+                "simple" => format!("This book is about: {}", joined),
+                _ => joined, // concise
+            }
         }
     }
 }

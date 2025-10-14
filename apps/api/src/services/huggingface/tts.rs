@@ -206,8 +206,6 @@ impl TTSService {
         match language {
             "de" => "facebook/mms-tts-deu",
             "ta" => "facebook/mms-tts-tam",
-            "es" => "facebook/mms-tts-spa",
-            "fr" => "facebook/mms-tts-fra",
             _ => TTS_MODEL, // English (en) and fallback
         }
     }

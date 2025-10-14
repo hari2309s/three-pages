@@ -1,8 +1,5 @@
 use sha2::{Digest, Sha256};
 
-const MAX_CHUNK_SIZE: usize = 4000;
-const OVERLAP_SIZE: usize = 200;
-
 #[allow(dead_code)]
 pub fn chunk_text(text: &str, max_size: usize) -> Vec<String> {
     let words: Vec<&str> = text.split_whitespace().collect();
@@ -26,26 +23,6 @@ pub fn chunk_text(text: &str, max_size: usize) -> Vec<String> {
 
     if !current_chunk.is_empty() {
         chunks.push(current_chunk.trim().to_string());
-    }
-
-    chunks
-}
-
-pub fn chunk_text_with_overlap(text: &str) -> Vec<String> {
-    let words: Vec<&str> = text.split_whitespace().collect();
-    let mut chunks = Vec::new();
-    let mut i = 0;
-
-    while i < words.len() {
-        let end = (i + MAX_CHUNK_SIZE).min(words.len());
-        let chunk = words[i..end].join(" ");
-        chunks.push(chunk);
-
-        if end == words.len() {
-            break;
-        }
-
-        i = end - OVERLAP_SIZE;
     }
 
     chunks

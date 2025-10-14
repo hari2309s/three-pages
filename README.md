@@ -27,8 +27,9 @@
 
 ### 🔊 **Natural Text-to-Speech**
 - **High-Quality Audio**: AI-generated speech using Microsoft SpeechT5 and Facebook MMS models
-- **Multiple Voice Options**: Supports different TTS models with fallback strategies
-- **Streaming Playback**: Optimized audio delivery with base64 encoding
+- **Intelligent Fallbacks**: Multiple TTS models with graceful fallback to synthetic audio when services are unavailable
+- **Enhanced User Experience**: Realistic duration estimation, progress feedback, and detailed error messages
+- **Streaming Playbook**: Optimized audio delivery with base64 encoding and Howler.js integration
 
 ### ⚡ **Production-Ready Performance**
 - **Advanced Caching**: Non-blocking cache operations with statistics and management
@@ -245,18 +246,27 @@ curl -X POST "http://localhost:10000/api/books/gutenberg:1342/summary" \
 ### Generate Audio
 
 ```bash
-# Generate text-to-speech audio
-curl "http://localhost:10000/api/summary/{summary_id}/audio?language=en"
+# Generate text-to-speech audio (with enhanced error handling)
+curl "http://localhost:10000/api/summary/{summary_id}/audio?language=en&voice_type=default"
 
-# Returns base64-encoded audio data
+# Returns base64-encoded audio data with metadata
 {
   "id": "uuid",
-  "file_url": "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAA...",
+  "summary_id": "summary_uuid",
+  "language": "en",
+  "voice_type": "default",
+  "audio_url": "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAA...",
   "duration_ms": 45000,
   "file_size_kb": 720,
-  "language": "en"
+  "created_at": "2024-01-15T10:30:00Z"
 }
 ```
+
+**Audio Generation Features:**
+- **Smart Fallbacks**: If HuggingFace TTS fails, generates synthetic audio with realistic duration
+- **Progress Feedback**: Frontend shows generation progress (30-60 seconds typical)
+- **Error Recovery**: Detailed error messages help users understand and resolve issues
+- **Audio Validation**: Comprehensive checks ensure audio quality before delivery
 
 ### System Health Check
 
@@ -376,7 +386,7 @@ vercel --prod
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/summary/{id}/audio` | GET | Get/generate audio for summary |
+| `/api/summary/{id}/audio` | GET | Generate text-to-speech audio with fallback support |
 
 ### System Management
 
@@ -459,6 +469,12 @@ curl -X DELETE "http://localhost:10000/api/cache/clear"
 # Check cache stats
 curl "http://localhost:10000/api/health/detailed" | jq '.services.cache'
 ```
+
+**Audio generation fails:**
+- ✅ **Enhanced Fallback**: System now generates synthetic audio when TTS services are unavailable
+- **User-Friendly Errors**: Detailed error messages explain issues and suggest solutions
+- **Retry Logic**: Built-in retry mechanisms with exponential backoff
+- **Verification**: Check audio generation with shorter text if issues persist
 
 ### Debug Mode
 

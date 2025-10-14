@@ -145,9 +145,14 @@ function AppContent() {
                                 disabled={summaryMutation.isPending}
                                 className="w-full"
                               >
-                                {summaryMutation.isPending
-                                  ? "Generating Summary..."
-                                  : "Generate Summary"}
+                                {summaryMutation.isPending ? (
+                                  <div className="flex items-center justify-center gap-2">
+                                    <LoadingSpinner size="sm" />
+                                    <span>Generating Summary...</span>
+                                  </div>
+                                ) : (
+                                  "Generate Summary"
+                                )}
                               </Button>
                             </div>
                           </div>

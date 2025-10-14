@@ -45,9 +45,60 @@ impl BookAggregatorService {
                     tracing::warn!("{} search failed: {}", source_name, e);
                 }
             }
+
+            fn get_source_priority(&self, source: &crate::models::BookSource) -> u8 {
+                match source {
+                    crate::models::BookSource::Gutenberg => 0, // Highest priority
+                    crate::models::BookSource::OpenLibrary => 1,
+                    crate::models::BookSource::Google => 2, // Lowest priority
+                }
+            }
+
+            fn create_dedup_key(&self, book: &crate::models::Book) -> String {
+                // Create a normalized key for deduplication
+                let title = book
+                    .title
+                    .to_lowercase()
+                    .trim()
+                    .replace(&[' ', '-', ':', '.', ',', ';'], "");
+                let author = book
+                    .authors
+                    .join("")
+                    .to_lowercase()
+                    .trim()
+                    .replace(&[' ', '-', ':', '.', ',', ';'], "");
+                format!("{}|{}", title, author)
+            }
         }
 
+        // Deduplicate books by title and author, keeping the highest priority source
+        let mut deduplicated = Vec::new();
+        let mut seen_books = std::collections::HashSet::new();
+
+        // Sort by source priority first (Gutenberg > OpenLibrary > Google)
         all_books.sort_by(|a, b| {
+            let a_priority = self.get_source_priority(&a.source);
+            let b_priority = self.get_source_priority(&b.source);
+            a_priority.cmp(&b_priority)
+        });
+
+        for book in all_books {
+            let key = self.create_dedup_key(&book);
+            if !seen_books.contains(&key) {
+                seen_books.insert(key);
+                deduplicated.push(book);
+            }
+        }
+
+        // Final sort by source priority, then by relevance
+        deduplicated.sort_by(|a, b| {
+            let a_priority = self.get_source_priority(&a.source);
+            let b_priority = self.get_source_priority(&b.source);
+
+            if a_priority != b_priority {
+                return a_priority.cmp(&b_priority);
+            }
+
             let a_score = self.calculate_relevance_score(a, query);
             let b_score = self.calculate_relevance_score(b, query);
             b_score
@@ -55,9 +106,9 @@ impl BookAggregatorService {
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
-        all_books.truncate(limit);
+        deduplicated.truncate(limit);
 
-        Ok(all_books)
+        Ok(deduplicated)
     }
 
     pub async fn get_book_details(&self, id: &str) -> Result<Option<BookDetail>> {

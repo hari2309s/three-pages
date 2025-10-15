@@ -8,7 +8,7 @@
     "dev": "cd apps/api && cargo run && cd apps/web && pnpm dev",
     "dev:web": "cd apps/web && pnpm dev",
     "dev:api": "cd apps/api && cargo run",
-    "build": "cd apps/web && pnpm install && pnpm run build",
+    "build": "cd apps/web && pnpm install && pnpm run build && cd ../.. && cp -r apps/web/dist .",
     "build:web": "cd apps/web && pnpm build",
     "build:api": "cd apps/api && cargo build --release",
     "vercel-build": "cd apps/web && pnpm install && pnpm run build",

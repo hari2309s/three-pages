@@ -63,7 +63,7 @@ three-pages/
 │   │   │   ├── services/        # API client
 │   │   │   └── types/           # TypeScript definitions
 │   │   └── public/              # Static assets
-│   └── docs/         # Documentation Site (Next.js)
+
 ├── packages/         # Shared Libraries
 │   ├── ui/               # Design system components
 │   ├── eslint-config/    # Shared linting rules

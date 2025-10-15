@@ -1,50 +1,50 @@
 {
   "version": 2,
   "name": "three-pages",
-  "builds": [
-    {
-      "src": "apps/web/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "apps/web/dist"
-      }
-    }
-  ],
   "buildCommand": "cd apps/web && pnpm install && pnpm run build",
-  "devCommand": "cd apps/web && pnpm run dev",
-  "installCommand": "pnpm install",
   "outputDirectory": "apps/web/dist",
+  "installCommand": "pnpm install",
   "framework": "vite",
   "env": {
-    "VITE_API_URL": "https://book-summarizer-api.onrender.com",
+    "VITE_API_URL": "https://three-pages-api.onrender.com",
     "VITE_API_TIMEOUT": "120000",
     "VITE_MAX_SUMMARY_LENGTH": "1000"
   },
   "build": {
     "env": {
-      "VITE_API_URL": "https://book-summarizer-api.onrender.com",
+      "VITE_API_URL": "https://three-pages-api.onrender.com",
       "VITE_API_TIMEOUT": "120000",
       "VITE_MAX_SUMMARY_LENGTH": "1000"
     }
   },
-  "routes": [
+  "rewrites": [
     {
-      "src": "/assets/(.*)",
-      "headers": {
-        "Cache-Control": "public, max-age=31536000, immutable"
-      }
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ],
-  "functions": {
-    "apps/web/src/**/*.ts": {
-      "maxDuration": 30
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     },
-    "apps/web/src/**/*.tsx": {
-      "maxDuration": 30
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        }
+      ]
     }
-  }
+  ]
 }

@@ -6,7 +6,7 @@ export const Header = () => {
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center gap-2">
           <motion.img
-            src="/assets/books.png"
+            src="/books.png"
             alt="Three Pages Logo"
             className="h-11 w-11"
           />

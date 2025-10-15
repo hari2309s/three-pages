@@ -17,6 +17,9 @@ pub enum AppError {
     #[error("HTTP request error: {0}")]
     HttpRequest(#[from] reqwest::Error),
 
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+
     #[error("Book not found: {0}")]
     BookNotFound(String),
 
@@ -75,6 +78,13 @@ impl IntoResponse for AppError {
                 (
                     StatusCode::BAD_GATEWAY,
                     "External service unavailable".to_string(),
+                )
+            }
+            AppError::Io(_) => {
+                tracing::error!("IO error: {}", self);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "IO operation failed".to_string(),
                 )
             }
             AppError::ServiceTimeout(_) => {

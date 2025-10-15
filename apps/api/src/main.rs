@@ -5,8 +5,6 @@ mod models;
 mod services;
 mod utils;
 
-use anyhow::Result;
-
 use std::net::SocketAddr;
 use tower_http::{compression::CompressionLayer, trace::TraceLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -26,7 +24,7 @@ pub struct AppState {
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> anyhow::Result<()> {
     // Load environment variables
     dotenv::dotenv().ok();
 
@@ -42,7 +40,7 @@ async fn main() -> Result<()> {
     // Load configuration
     let config = Settings::new().map_err(|e| {
         tracing::error!("Failed to load configuration: {}", e);
-        e
+        anyhow::anyhow!("Configuration error: {}", e)
     })?;
     tracing::info!("Configuration loaded successfully");
     tracing::debug!(
@@ -66,7 +64,7 @@ async fn main() -> Result<()> {
         tracing::error!("2. Missing migration files");
         tracing::error!("3. Database permissions");
         tracing::error!("4. Incorrect DATABASE_URL format");
-        return Err(e);
+        return Err(anyhow::anyhow!("Database migration failed: {}", e));
     }
     tracing::info!("Database migrations completed successfully");
 
@@ -96,13 +94,17 @@ async fn main() -> Result<()> {
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
     tracing::info!("Server starting on {}", addr);
 
-    let listener = tokio::net::TcpListener::bind(addr).await?;
-    axum::serve(listener, app).await?;
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to bind to address {}: {}", addr, e))?;
+    axum::serve(listener, app)
+        .await
+        .map_err(|e| anyhow::anyhow!("Server error: {}", e))?;
 
     Ok(())
 }
 
-async fn initialize_database(config: &Settings) -> Result<DatabaseService> {
+async fn initialize_database(config: &Settings) -> anyhow::Result<DatabaseService> {
     use std::time::Duration;
     use tokio::time::sleep;
 
@@ -128,7 +130,7 @@ async fn initialize_database(config: &Settings) -> Result<DatabaseService> {
                     tracing::error!("2. Database server is running and accessible");
                     tracing::error!("3. Network connectivity to database");
                     tracing::error!("4. Database credentials are correct");
-                    return Err(e);
+                    return Err(anyhow::anyhow!("Database connection failed: {}", e));
                 }
 
                 let backoff_seconds = retry_count * 2;

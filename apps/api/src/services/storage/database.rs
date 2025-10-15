@@ -31,6 +31,10 @@ impl DatabaseService {
             sanitized_url
         );
 
+        // Configure PostgreSQL connection pool for optimal performance
+        // - max_connections: Limit concurrent database connections
+        // - acquire_timeout: Max time to wait for an available connection from pool
+        // - idle_timeout: How long to keep idle connections before closing them
         let pool = PgPoolOptions::new()
             .max_connections(max_connections)
             .acquire_timeout(std::time::Duration::from_secs(30))

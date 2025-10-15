@@ -20,33 +20,40 @@ services:
     dependsOn:
       - three-pages-db
     envVars:
-      - key: RUST_LOG
-        value: info,three_pages_api=debug,sqlx=debug
+      # Core Application Settings
       - key: PORT
         value: 10000
       - key: ENVIRONMENT
         value: production
+      - key: RUST_LOG
+        value: info,three_pages_api=debug,sqlx=debug
+
+      # Database Configuration
       - key: DATABASE_URL
         fromDatabase:
           name: three-pages-db
           property: connectionString
       - key: DATABASE_POOL_SIZE
         value: 3
+
+      # AI/ML Service APIs
       - key: HF_TOKEN
-        sync: false
-      - key: APP_HUGGINGFACE_API_KEY
         sync: false
       - key: HF_API_BASE_URL
         value: https://api-inference.huggingface.co
-      - key: APP_HUGGINGFACE_API_BASE_URL
-        value: https://api-inference.huggingface.co
+
+      # Book Data APIs
       - key: GOOGLE_BOOKS_API_KEY
         sync: false
       - key: GUTENBERG_API_BASE_URL
         value: https://gutendex.com
+
+      # Performance & Caching
       - key: CACHE_TTL_SECONDS
         value: 3600
       - key: CACHE_MAX_CAPACITY
         value: 1000
+
+      # Security & CORS
       - key: ALLOWED_ORIGINS
         sync: false

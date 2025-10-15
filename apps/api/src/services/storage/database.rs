@@ -34,7 +34,7 @@ impl DatabaseService {
         let pool = PgPoolOptions::new()
             .max_connections(max_connections)
             .acquire_timeout(std::time::Duration::from_secs(30))
-            .connect_timeout(std::time::Duration::from_secs(30))
+            .idle_timeout(std::time::Duration::from_secs(300))
             .connect(database_url)
             .await
             .map_err(|e| {

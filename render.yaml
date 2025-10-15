@@ -1,30 +1,45 @@
 services:
+  # PostgreSQL Database
+  - type: pserv
+    name: three-pages-db
+    plan: free
+    databaseName: three_pages
+    user: three_pages_user
+
+  # API Service
   - type: web
-    name: book-summarizer-api
+    name: three-pages-api
     runtime: rust
     plan: free
+    rootDir: apps/api
     buildCommand: cargo build --release
-    startCommand: ./target/release/book-summarizer-api
+    startCommand: ./target/release/three-pages-api
     healthCheckPath: /api/health
     envVars:
       - key: RUST_LOG
-        value: info,book_summarizer_api=debug
+        value: info,three_pages_api=debug
       - key: PORT
         value: 10000
       - key: ENVIRONMENT
         value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: three-pages-db
+          property: connectionString
+      - key: DATABASE_POOL_SIZE
+        value: 5
       - key: HF_TOKEN
+        sync: false
+      - key: APP_HUGGINGFACE_API_KEY
         sync: false
       - key: HF_API_BASE_URL
         value: https://api-inference.huggingface.co
+      - key: APP_HUGGINGFACE_API_BASE_URL
+        value: https://api-inference.huggingface.co
       - key: GOOGLE_BOOKS_API_KEY
         sync: false
-      - key: GUTENBERG_API_BASE
+      - key: GUTENBERG_API_BASE_URL
         value: https://gutendex.com
-      - key: DATABASE_URL
-        sync: false
-      - key: DATABASE_POOL_SIZE
-        value: 5
       - key: CACHE_TTL_SECONDS
         value: 3600
       - key: CACHE_MAX_CAPACITY

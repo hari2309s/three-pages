@@ -40,16 +40,35 @@ async fn main() -> Result<()> {
         .init();
 
     // Load configuration
-    let config = Settings::new()?;
+    let config = Settings::new().map_err(|e| {
+        tracing::error!("Failed to load configuration: {}", e);
+        e
+    })?;
     tracing::info!("Configuration loaded successfully");
+    tracing::debug!(
+        "Database URL configured: {}",
+        if config.database_url.starts_with("postgres://") {
+            "postgres://***"
+        } else {
+            "***"
+        }
+    );
 
-    // Initialize database
-    let db = DatabaseService::new(&config.database_url, config.database_pool_size).await?;
-    tracing::info!("Database connection established");
+    // Initialize database with retry logic
+    let db = initialize_database(&config).await?;
 
-    // Run migrations
-    db.run_migrations().await?;
-    tracing::info!("Database migrations completed");
+    // Run migrations with better error handling
+    tracing::info!("Running database migrations...");
+    if let Err(e) = db.run_migrations().await {
+        tracing::error!("Database migration failed: {}", e);
+        tracing::error!("This is often due to:");
+        tracing::error!("1. Database connection issues");
+        tracing::error!("2. Missing migration files");
+        tracing::error!("3. Database permissions");
+        tracing::error!("4. Incorrect DATABASE_URL format");
+        return Err(e);
+    }
+    tracing::info!("Database migrations completed successfully");
 
     // Initialize cache
     let cache = CacheService::new(config.cache_max_capacity, config.cache_ttl_seconds);
@@ -81,4 +100,46 @@ async fn main() -> Result<()> {
     axum::serve(listener, app).await?;
 
     Ok(())
+}
+
+async fn initialize_database(config: &Settings) -> Result<DatabaseService> {
+    use std::time::Duration;
+    use tokio::time::sleep;
+
+    let max_retries = 5;
+    let mut retry_count = 0;
+
+    loop {
+        match DatabaseService::new(&config.database_url, config.database_pool_size).await {
+            Ok(db) => {
+                tracing::info!("Database connection established successfully");
+                return Ok(db);
+            }
+            Err(e) => {
+                retry_count += 1;
+                if retry_count >= max_retries {
+                    tracing::error!(
+                        "Failed to connect to database after {} attempts",
+                        max_retries
+                    );
+                    tracing::error!("Database error: {}", e);
+                    tracing::error!("Please check:");
+                    tracing::error!("1. DATABASE_URL is correctly formatted");
+                    tracing::error!("2. Database server is running and accessible");
+                    tracing::error!("3. Network connectivity to database");
+                    tracing::error!("4. Database credentials are correct");
+                    return Err(e);
+                }
+
+                let backoff_seconds = retry_count * 2;
+                tracing::warn!(
+                    "Database connection attempt {} failed: {}. Retrying in {} seconds...",
+                    retry_count,
+                    e,
+                    backoff_seconds
+                );
+                sleep(Duration::from_secs(backoff_seconds)).await;
+            }
+        }
+    }
 }

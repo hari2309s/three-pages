@@ -8,13 +8,17 @@
     "dev": "cd apps/api && cargo run && cd apps/web && pnpm dev",
     "dev:web": "cd apps/web && pnpm dev",
     "dev:api": "cd apps/api && cargo run",
+    "build": "cd apps/web && pnpm install && pnpm run build",
     "build:web": "cd apps/web && pnpm build",
     "build:api": "cd apps/api && cargo build --release",
+    "vercel-build": "cd apps/web && pnpm install && pnpm run build",
     "install:web": "cd apps/web && pnpm install",
     "lint:web": "cd apps/web && pnpm lint",
     "test:api": "cd apps/api && cargo test",
     "clean": "turbo run clean && rm -rf node_modules",
-    "format": "prettier --write \"**/*.{ts,tsx,md,json}\""
+    "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
+    "start": "cd apps/web && pnpm preview",
+    "deploy:web": "vercel --prod"
   },
   "devDependencies": {
     "turbo": "^2.0.0",

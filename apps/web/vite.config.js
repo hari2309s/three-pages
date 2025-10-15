@@ -14,6 +14,38 @@ export default defineConfig({
       "@/lib": path.resolve(__dirname, "./src/lib"),
     },
   },
+  build: {
+    outDir: "dist",
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ["react", "react-dom"],
+          ui: [
+            "@radix-ui/react-dialog",
+            "@radix-ui/react-progress",
+            "@radix-ui/react-select",
+            "@radix-ui/react-slot",
+            "@radix-ui/react-tabs",
+          ],
+          motion: ["framer-motion"],
+          query: ["@tanstack/react-query"],
+          markdown: ["react-markdown"],
+          audio: ["howler"],
+          utils: [
+            "axios",
+            "clsx",
+            "class-variance-authority",
+            "tailwind-merge",
+            "zustand",
+          ],
+        },
+      },
+    },
+    target: "es2015",
+    minify: "terser",
+    sourcemap: false,
+  },
   server: {
     port: 5173,
     proxy: {
@@ -22,5 +54,8 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+  },
+  preview: {
+    port: 4173,
   },
 });

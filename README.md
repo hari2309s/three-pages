@@ -280,47 +280,21 @@ pnpm build:api        # Build backend (release mode)
 ## 🚀 Deployment
 
 ### Frontend (Vercel)
-
-The web application is configured for deployment on Vercel:
-
 ```bash
-# Quick deployment via Vercel CLI
 vercel --prod
-
-# Or use the build script
-pnpm run build        # Build web app
-pnpm run vercel-build # Vercel-specific build
 ```
-
-**Configuration:**
-- **Framework:** Vite
-- **Build Command:** `cd apps/web && pnpm install && pnpm run build`
-- **Output Directory:** `apps/web/dist`
-- **Environment Variables:**
-  - `VITE_API_URL`: Your API backend URL
-  - `VITE_API_TIMEOUT`: API timeout (120000ms)
-  - `VITE_MAX_SUMMARY_LENGTH`: Max summary length (1000)
-
-**Files:**
-- `vercel.json` - Project-level Vercel configuration
-- `apps/web/vercel.json` - App-specific configuration
-- `.vercelignore` - Excludes API code and dev files
-- `VERCEL_DEPLOYMENT.md` - Detailed deployment guide
 
 ### Backend (Render)
-
-The API is deployed on Render using the `render.yaml` configuration:
-
 ```bash
-# API runs on: https://book-summarizer-api.onrender.com
-# Health check: https://book-summarizer-api.onrender.com/api/health
+./deploy_render.sh
 ```
 
-**Environment Variables Required:**
+**Required Environment Variables:**
 - `HF_TOKEN` - Hugging Face API token
-- `GOOGLE_BOOKS_API_KEY` - Google Books API key  
-- `DATABASE_URL` - PostgreSQL connection string
-- `ALLOWED_ORIGINS` - CORS allowed origins
+- `GOOGLE_BOOKS_API_KEY` - Google Books API key (optional)
+- `ALLOWED_ORIGINS` - Frontend URL for CORS
+
+See `VERCEL_DEPLOYMENT.md` and `RENDER_DEPLOYMENT.md` for detailed guides.
 
 ## 🧪 Testing & Quality
 pnpm test:api         # Run Rust tests

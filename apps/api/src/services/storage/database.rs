@@ -13,11 +13,38 @@ pub struct DatabaseService {
 
 impl DatabaseService {
     pub async fn new(database_url: &str, max_connections: u32) -> Result<Self> {
+        // Sanitize URL for logging
+        let sanitized_url = if database_url.contains("@") {
+            let parts: Vec<&str> = database_url.split("@").collect();
+            if parts.len() > 1 {
+                format!("postgres://***:***@{}", parts[1])
+            } else {
+                "postgres://***".to_string()
+            }
+        } else {
+            "postgres://***".to_string()
+        };
+
+        tracing::info!(
+            "Creating database connection pool with {} connections to {}",
+            max_connections,
+            sanitized_url
+        );
+
         let pool = PgPoolOptions::new()
             .max_connections(max_connections)
+            .acquire_timeout(std::time::Duration::from_secs(30))
+            .connect_timeout(std::time::Duration::from_secs(30))
             .connect(database_url)
-            .await?;
+            .await
+            .map_err(|e| {
+                tracing::error!("Database connection pool creation failed: {}", e);
+                tracing::error!("Connection URL format: {}", sanitized_url);
+                tracing::error!("Max connections: {}", max_connections);
+                e
+            })?;
 
+        tracing::info!("Database connection pool created successfully");
         Ok(Self { pool })
     }
 

@@ -5,19 +5,23 @@ services:
     plan: free
     databaseName: three_pages
     user: three_pages_user
+    region: oregon
 
   # API Service
   - type: web
     name: three-pages-api
     runtime: rust
     plan: free
+    region: oregon
     rootDir: apps/api
     buildCommand: cargo build --release
     startCommand: ./target/release/three-pages-api
     healthCheckPath: /api/health
+    dependsOn:
+      - three-pages-db
     envVars:
       - key: RUST_LOG
-        value: info,three_pages_api=debug
+        value: info,three_pages_api=debug,sqlx=debug
       - key: PORT
         value: 10000
       - key: ENVIRONMENT
@@ -27,7 +31,7 @@ services:
           name: three-pages-db
           property: connectionString
       - key: DATABASE_POOL_SIZE
-        value: 5
+        value: 3
       - key: HF_TOKEN
         sync: false
       - key: APP_HUGGINGFACE_API_KEY

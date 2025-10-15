@@ -108,38 +108,77 @@ async fn initialize_database(config: &Settings) -> anyhow::Result<DatabaseServic
     use std::time::Duration;
     use tokio::time::sleep;
 
+    // Sanitize and log database URL for debugging
+    let db_url = &config.database_url;
+    let sanitized_url = if db_url.contains("@") {
+        let parts: Vec<&str> = db_url.split("@").collect();
+        if parts.len() > 1 {
+            format!("postgres://***:***@{}", parts[1])
+        } else {
+            "postgres://***".to_string()
+        }
+    } else {
+        "postgres://***".to_string()
+    };
+
+    tracing::info!("Attempting to connect to database: {}", sanitized_url);
+    tracing::info!("Database pool size: {}", config.database_pool_size);
+
     let max_retries = 5;
     let mut retry_count = 0;
 
     loop {
+        tracing::info!(
+            "Database connection attempt {} of {}",
+            retry_count + 1,
+            max_retries
+        );
+
         match DatabaseService::new(&config.database_url, config.database_pool_size).await {
             Ok(db) => {
-                tracing::info!("Database connection established successfully");
+                tracing::info!(
+                    "Database connection established successfully on attempt {}",
+                    retry_count + 1
+                );
                 return Ok(db);
             }
             Err(e) => {
+                tracing::error!(
+                    "Database connection attempt {} failed with error: {}",
+                    retry_count + 1,
+                    e
+                );
                 retry_count += 1;
                 if retry_count >= max_retries {
                     tracing::error!(
                         "Failed to connect to database after {} attempts",
                         max_retries
                     );
-                    tracing::error!("Database error: {}", e);
-                    tracing::error!("Please check:");
-                    tracing::error!("1. DATABASE_URL is correctly formatted");
+                    tracing::error!("Final database error: {}", e);
+                    tracing::error!("Database URL format: {}", sanitized_url);
+                    tracing::error!("Troubleshooting checklist:");
+                    tracing::error!("1. DATABASE_URL is correctly formatted (postgres://user:pass@host:port/db)");
                     tracing::error!("2. Database server is running and accessible");
-                    tracing::error!("3. Network connectivity to database");
+                    tracing::error!("3. Network connectivity to database host");
                     tracing::error!("4. Database credentials are correct");
-                    return Err(anyhow::anyhow!("Database connection failed: {}", e));
+                    tracing::error!("5. Database service is in the same region as API service");
+                    tracing::error!(
+                        "6. Database service is fully provisioned (not still starting)"
+                    );
+                    return Err(anyhow::anyhow!(
+                        "Database connection failed after {} attempts: {}",
+                        max_retries,
+                        e
+                    ));
                 }
 
-                let backoff_seconds = retry_count * 2;
+                let backoff_seconds = (retry_count + 1) * 3; // Longer backoff
                 tracing::warn!(
-                    "Database connection attempt {} failed: {}. Retrying in {} seconds...",
-                    retry_count,
-                    e,
+                    "Database connection attempt {} failed. Retrying in {} seconds...",
+                    retry_count + 1,
                     backoff_seconds
                 );
+                tracing::debug!("Connection error details: {:?}", e);
                 sleep(Duration::from_secs(backoff_seconds)).await;
             }
         }

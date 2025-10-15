@@ -15,7 +15,7 @@
     "install:web": "cd apps/web && pnpm install",
     "lint:web": "cd apps/web && pnpm lint",
     "test:api": "cd apps/api && cargo test",
-    "clean": "turbo run clean && rm -rf node_modules",
+    "clean": "turbo run clean && rm -rf node_modules && rm -rf dist",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
     "start": "cd apps/web && pnpm preview",
     "deploy:web": "vercel --prod"

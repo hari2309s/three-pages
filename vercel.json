@@ -1,7 +1,5 @@
 {
-  "version": 2,
-  "name": "three-pages",
-  "buildCommand": "cd apps/web && pnpm install && pnpm run build",
+  "buildCommand": "pnpm run build",
   "outputDirectory": "apps/web/dist",
   "installCommand": "pnpm install",
   "framework": "vite",
@@ -9,13 +7,6 @@
     "VITE_API_URL": "https://three-pages-api.onrender.com",
     "VITE_API_TIMEOUT": "120000",
     "VITE_MAX_SUMMARY_LENGTH": "1000"
-  },
-  "build": {
-    "env": {
-      "VITE_API_URL": "https://three-pages-api.onrender.com",
-      "VITE_API_TIMEOUT": "120000",
-      "VITE_MAX_SUMMARY_LENGTH": "1000"
-    }
   },
   "rewrites": [
     {
@@ -30,19 +21,6 @@
         {
           "key": "Cache-Control",
           "value": "public, max-age=31536000, immutable"
-        }
-      ]
-    },
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
         }
       ]
     }

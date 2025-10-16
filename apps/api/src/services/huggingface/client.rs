@@ -13,11 +13,141 @@ pub struct HuggingFaceClient {
 
 impl HuggingFaceClient {
     pub fn new(client: Client, api_base: String, token: String) -> Self {
+        tracing::info!(
+            "Initializing HuggingFace client with base URL: {}",
+            api_base
+        );
         Self {
             client,
             api_base,
             token,
         }
+    }
+
+    pub async fn tts(&self, model: &str, text: &str) -> Result<Vec<u8>> {
+        self.tts_with_retry(model, text, 3).await
+    }
+
+    async fn tts_with_retry(&self, model: &str, text: &str, max_retries: u32) -> Result<Vec<u8>> {
+        let url = format!("{}/models/{}", self.api_base, model);
+
+        let payload = json!({
+            "inputs": text,
+        });
+
+        tracing::info!(
+            "TTS Request - Model: {}, Text length: {} chars, URL: {}",
+            model,
+            text.len(),
+            url
+        );
+
+        let mut last_error = None;
+
+        for attempt in 1..=max_retries {
+            tracing::info!(
+                "TTS HTTP request attempt {}/{} for model: {}",
+                attempt,
+                max_retries,
+                model
+            );
+
+            match self
+                .client
+                .post(&url)
+                .header("Authorization", format!("Bearer {}", self.token))
+                .header("Content-Type", "application/json")
+                .json(&payload)
+                .timeout(std::time::Duration::from_secs(120))
+                .send()
+                .await
+            {
+                Ok(response) => {
+                    let status = response.status();
+                    tracing::info!("TTS response status: {} for model: {}", status, model);
+
+                    if status.is_success() {
+                        match response.bytes().await {
+                            Ok(bytes) => {
+                                let data = bytes.to_vec();
+                                tracing::info!(
+                                    "TTS response received: {} bytes for model: {}",
+                                    data.len(),
+                                    model
+                                );
+
+                                // More lenient validation - just check we got some data
+                                if data.len() > 100 {
+                                    tracing::info!(
+                                        "TTS successful, generated {} bytes with model {}",
+                                        data.len(),
+                                        model
+                                    );
+                                    return Ok(data);
+                                } else {
+                                    let error = AppError::ExternalApi(format!(
+                                        "TTS returned only {} bytes (expected >100)",
+                                        data.len()
+                                    ));
+                                    tracing::warn!("TTS data too small: {} bytes", data.len());
+                                    last_error = Some(error);
+                                }
+                            }
+                            Err(e) => {
+                                let error = AppError::ExternalApi(format!(
+                                    "Failed to read TTS response bytes: {}",
+                                    e
+                                ));
+                                tracing::error!("Failed to read TTS bytes: {}", e);
+                                last_error = Some(error);
+                            }
+                        }
+                    } else {
+                        let error_text = response.text().await.unwrap_or_default();
+                        let error = AppError::ExternalApi(format!(
+                            "HuggingFace TTS error {}: {}",
+                            status, error_text
+                        ));
+
+                        tracing::error!(
+                            "TTS API error - Status: {}, Model: {}, Error: {}",
+                            status,
+                            model,
+                            error_text
+                        );
+
+                        last_error = Some(error);
+
+                        // Don't retry on authentication or model not found errors
+                        if status == 401 || status == 403 {
+                            tracing::error!("Authentication error - check your HF_TOKEN");
+                            return Err(last_error.unwrap());
+                        }
+
+                        if status == 404 {
+                            tracing::error!("Model not found: {}", model);
+                            return Err(last_error.unwrap());
+                        }
+                    }
+                }
+                Err(e) => {
+                    let error = AppError::ExternalApi(format!(
+                        "Failed to connect to HuggingFace TTS API: {}",
+                        e
+                    ));
+                    tracing::error!("TTS connection error: {}", e);
+                    last_error = Some(error);
+                }
+            }
+
+            if attempt < max_retries {
+                let delay = std::time::Duration::from_millis(2000 * attempt as u64);
+                tracing::warn!("TTS attempt {} failed, retrying in {:?}", attempt, delay);
+                tokio::time::sleep(delay).await;
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| AppError::ExternalApi("Unknown TTS error".to_string())))
     }
 
     pub async fn inference(
@@ -165,93 +295,6 @@ impl HuggingFaceClient {
                 self.inference(model, prompt, Some(simple_parameters)).await
             }
         }
-    }
-
-    pub async fn tts(&self, model: &str, text: &str) -> Result<Vec<u8>> {
-        self.tts_with_retry(model, text, 3).await
-    }
-
-    async fn tts_with_retry(&self, model: &str, text: &str, max_retries: u32) -> Result<Vec<u8>> {
-        let url = format!("{}/models/{}", self.api_base, model);
-
-        let payload = json!({
-            "inputs": text,
-        });
-
-        let mut last_error = None;
-
-        for attempt in 1..=max_retries {
-            tracing::debug!("TTS attempt {} for model: {}", attempt, model);
-
-            match self
-                .client
-                .post(&url)
-                .header("Authorization", format!("Bearer {}", self.token))
-                .json(&payload)
-                .timeout(std::time::Duration::from_secs(120)) // Longer timeout for TTS
-                .send()
-                .await
-            {
-                Ok(response) => {
-                    let status = response.status();
-
-                    if status.is_success() {
-                        match response.bytes().await {
-                            Ok(bytes) => {
-                                let data = bytes.to_vec();
-                                if data.len() > 100 {
-                                    // Basic validation - audio should be more than 100 bytes
-                                    tracing::debug!(
-                                        "TTS successful, generated {} bytes",
-                                        data.len()
-                                    );
-                                    return Ok(data);
-                                } else {
-                                    let error = AppError::ExternalApi(
-                                        "TTS returned insufficient audio data".to_string(),
-                                    );
-                                    last_error = Some(error);
-                                }
-                            }
-                            Err(e) => {
-                                let error = AppError::ExternalApi(format!(
-                                    "Failed to read TTS response bytes: {}",
-                                    e
-                                ));
-                                last_error = Some(error);
-                            }
-                        }
-                    } else {
-                        let error_text = response.text().await.unwrap_or_default();
-                        let error = AppError::ExternalApi(format!(
-                            "HuggingFace TTS error {}: {}",
-                            status, error_text
-                        ));
-                        last_error = Some(error);
-
-                        // Don't retry on authentication or model not found errors
-                        if status == 401 || status == 403 || status == 404 {
-                            return Err(last_error.unwrap());
-                        }
-                    }
-                }
-                Err(e) => {
-                    let error = AppError::ExternalApi(format!(
-                        "Failed to connect to HuggingFace TTS API: {}",
-                        e
-                    ));
-                    last_error = Some(error);
-                }
-            }
-
-            if attempt < max_retries {
-                let delay = std::time::Duration::from_millis(2000 * attempt as u64);
-                tracing::warn!("TTS attempt {} failed, retrying in {:?}", attempt, delay);
-                tokio::time::sleep(delay).await;
-            }
-        }
-
-        Err(last_error.unwrap_or_else(|| AppError::ExternalApi("Unknown TTS error".to_string())))
     }
 
     /// BART-specific summarization with better parameters

@@ -28,6 +28,7 @@ pub async fn get_audio(
     Path(summary_id): Path<String>,
     Query(query): Query<AudioQuery>,
 ) -> Result<impl IntoResponse> {
+    tracing::info!("==========================================");
     tracing::info!(
         "Audio generation request - Summary: {}, Language: {}, Voice: {:?}",
         summary_id,
@@ -82,7 +83,11 @@ pub async fn get_audio(
         ));
     }
 
-    tracing::debug!(
+    tracing::info!(
+        "Summary text preview (first 100 chars): {}",
+        &summary.summary_text.chars().take(100).collect::<String>()
+    );
+    tracing::info!(
         "Summary text length: {} characters for audio generation",
         summary.summary_text.len()
     );
@@ -119,7 +124,7 @@ pub async fn get_audio(
             }
 
             tracing::info!(
-                "Successfully generated audio: {} bytes for summary {} in language {}",
+                "✓ Successfully generated audio: {} bytes for summary {} in language {}",
                 data.len(),
                 summary_id,
                 query.language
@@ -127,44 +132,48 @@ pub async fn get_audio(
             data
         }
         Err(e) => {
+            tracing::error!("==========================================");
             tracing::error!(
-                "TTS generation failed for summary {} in language {}: {}",
+                "✗ TTS generation FAILED for summary {} in language {}: {}",
                 summary_id,
                 query.language,
                 e
             );
+            tracing::error!("==========================================");
 
             // Provide more user-friendly error messages based on error type
             let user_error = match e {
                 crate::utils::errors::AppError::ExternalApi(ref msg) => {
+                    tracing::error!("External API error details: {}", msg);
+
                     if msg.contains("Authentication") || msg.contains("401") || msg.contains("403")
                     {
-                        "Audio service authentication failed. Please contact support.".to_string()
+                        "Audio service authentication failed. HuggingFace API token may be invalid or expired. Please check your HF_TOKEN configuration.".to_string()
                     } else if msg.contains("timeout") || msg.contains("timed out") {
-                        "Audio generation timed out. Please try again with shorter text."
+                        "Audio generation timed out. The HuggingFace model may be loading (cold start). Please try again in a moment."
                             .to_string()
                     } else if msg.contains("rate limit") || msg.contains("429") {
-                        "Audio service is temporarily busy. Please try again in a moment."
+                        "Audio service rate limit exceeded. Please wait a moment and try again."
                             .to_string()
                     } else if msg.contains("model") || msg.contains("404") {
-                        "Audio generation model temporarily unavailable. Please try again later."
-                            .to_string()
+                        format!("Audio generation model not found. Error: {}", msg)
+                    } else if msg.contains("Unable to generate audio") {
+                        format!("TTS generation failed: {}", msg)
                     } else {
-                        "Audio generation service temporarily unavailable. Please try again later."
-                            .to_string()
+                        format!("Audio generation service error: {}", msg)
                     }
                 }
-                _ => "Audio generation failed due to an unexpected error. Please try again."
-                    .to_string(),
+                _ => format!("Audio generation failed: {}", e),
             };
 
+            tracing::error!("Returning error to user: {}", user_error);
             return Err(AppError::ServiceError(user_error));
         }
     };
 
     let file_size_kb = (audio_data.len() / 1024) as i32;
 
-    tracing::debug!("Encoding audio data to base64, size: {}KB", file_size_kb);
+    tracing::info!("Encoding audio data to base64, size: {}KB", file_size_kb);
 
     let audio_base64 = general_purpose::STANDARD.encode(&audio_data);
     let data_url = format!("data:audio/wav;base64,{}", audio_base64);
@@ -180,7 +189,7 @@ pub async fn get_audio(
         ));
     }
 
-    tracing::debug!(
+    tracing::info!(
         "Generated base64 audio data: {} characters for summary {}",
         audio_base64.len(),
         summary_id
@@ -219,12 +228,14 @@ pub async fn get_audio(
 
     let response = audio_file.to_response();
 
+    tracing::info!("==========================================");
     tracing::info!(
-        "Audio generation completed successfully - Summary: {}, Language: {}, Size: {}KB",
+        "✓ Audio generation completed successfully - Summary: {}, Language: {}, Size: {}KB",
         summary_id,
         query.language,
         file_size_kb
     );
+    tracing::info!("==========================================");
 
     Ok((
         StatusCode::OK,

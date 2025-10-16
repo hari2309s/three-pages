@@ -198,7 +198,7 @@ sqlx migrate revert
 cargo build --release
 
 # Run the binary
-./target/release/book-summarizer-api
+./target/release/three-pages-api
 ```
 
 ## Performance Optimization

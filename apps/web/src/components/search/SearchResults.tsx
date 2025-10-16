@@ -93,8 +93,11 @@ export const SearchResults = ({
       className="space-y-6"
     >
       {results.query_understood && (
-        <AnimatedContainer variant="fade" className="rounded-lg bg-muted p-4">
-          <AnimatedText as="p" className="text-sm">
+        <AnimatedContainer
+          variant="fade"
+          className="rounded-lg bg-[#facda3] p-4"
+        >
+          <AnimatedText as="p" className="text-sm text-[#270e07]">
             <span className="font-medium">Search interpreted as:</span>{" "}
             {results.query_understood.search_query}
           </AnimatedText>

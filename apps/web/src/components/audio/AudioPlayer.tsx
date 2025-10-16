@@ -35,16 +35,17 @@ export const AudioPlayer = ({
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <Card>
+    <Card className="bg-[#facda3]">
       <CardHeader>
         <CardTitle>Audio Playback</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-center gap-2">
           <Button
-            variant="outline"
+            variant="ghost"
             size="icon"
             onClick={isPlaying ? onPause : onPlay}
+            className="bg-[#80371c]"
           >
             {isPlaying ? (
               <Pause className="h-4 w-4" />
@@ -52,7 +53,12 @@ export const AudioPlayer = ({
               <Play className="h-4 w-4" />
             )}
           </Button>
-          <Button variant="outline" size="icon" onClick={onStop}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onStop}
+            className="bg-[#80371c]"
+          >
             <Square className="h-4 w-4" />
           </Button>
           <div className="flex-1">

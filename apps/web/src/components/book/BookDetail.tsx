@@ -2,8 +2,6 @@ import { Book as BookIcon, ExternalLink } from "lucide-react";
 import {
   Button,
   CardContent,
-  CardHeader,
-  CardTitle,
   AnimatedCard,
   AnimatedContainer,
   AnimatedText,
@@ -17,11 +15,6 @@ interface BookDetailProps {
 export const BookDetail = ({ book }: BookDetailProps) => {
   return (
     <AnimatedCard hover={false} tap={false}>
-      <CardHeader>
-        <AnimatedText as="h2">
-          <CardTitle>Book Details</CardTitle>
-        </AnimatedText>
-      </CardHeader>
       <CardContent>
         <AnimatedContainer
           variant="container"

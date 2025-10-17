@@ -5,7 +5,7 @@
   "private": true,
   "description": "Any book. Three pages. Any language.",
   "scripts": {
-    "dev": "cd apps/api && cargo run && cd apps/web && pnpm dev",
+    "dev": "concurrently -k -n api,web -c green,cyan \"cd apps/api && cargo run\" \"cd apps/web && pnpm dev\"",
     "dev:web": "cd apps/web && pnpm dev",
     "dev:api": "cd apps/api && cargo run",
     "build": "cd apps/web && pnpm install && pnpm run build && cd ../.. && cp -r apps/web/dist .",
@@ -24,7 +24,8 @@
     "turbo": "^2.0.0",
     "prettier": "^3.0.0",
     "@types/node": "^20.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "concurrently": "^8.2.2"
   },
   "packageManager": "pnpm@9.0.0",
   "engines": {

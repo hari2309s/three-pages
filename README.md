@@ -3,8 +3,18 @@
 > **Any book. Three pages. Perfectly summarized.**
 
 [![Rust](https://img.shields.io/badge/Rust-1.70+-orange.svg)](https://www.rust-lang.org/)
+[![Axum](https://img.shields.io/badge/Axum-0.7-blue.svg)](https://github.com/tokio-rs/axum)
+[![Tokio](https://img.shields.io/badge/Tokio-Async%20Runtime-green.svg)](https://tokio.rs/)
+[![SQLx](https://img.shields.io/badge/SQLx-Type%20Safe-orange.svg)](https://github.com/launchbadge/sqlx)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-blue.svg)](https://www.postgresql.org/)
 [![React](https://img.shields.io/badge/React-19+-blue.svg)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5+-blue.svg)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-Latest-purple.svg)](https://vitejs.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-4-38bdf8.svg)](https://tailwindcss.com/)
+[![Radix UI](https://img.shields.io/badge/Radix%20UI-Components-black.svg)](https://www.radix-ui.com/)
+[![Framer Motion](https://img.shields.io/badge/Framer%20Motion-Animations-ff69b4.svg)](https://www.framer.com/motion/)
+[![Hugging Face](https://img.shields.io/badge/🤗%20Hugging%20Face-AI%20Models-yellow.svg)](https://huggingface.co/)
+[![Moka](https://img.shields.io/badge/Moka-Cache-lightblue.svg)](https://github.com/moka-rs/moka)
 [![Performance](https://img.shields.io/badge/Search%20Speed-1--2s-brightgreen)](#performance)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -277,6 +287,17 @@ pnpm build            # Build all
 pnpm build:web        # Build frontend
 pnpm build:api        # Build backend (release mode)
 
+# Testing & Quality
+pnpm test:api         # Run Rust tests
+pnpm lint:web         # Lint frontend code
+pnpm format           # Format all code
+./performance_test.sh # Run performance tests
+
+# Utilities
+pnpm clean            # Clean build artifacts
+pnpm install:web      # Install frontend deps only
+```
+
 ## 🚀 Deployment
 
 ### Frontend (Vercel)
@@ -295,17 +316,6 @@ vercel --prod
 - `ALLOWED_ORIGINS` - Frontend URL for CORS
 
 See `VERCEL_DEPLOYMENT.md` and `RENDER_DEPLOYMENT.md` for detailed guides.
-
-## 🧪 Testing & Quality
-pnpm test:api         # Run Rust tests
-pnpm lint:web         # Lint frontend code
-pnpm format           # Format all code
-./performance_test.sh # Run performance tests
-
-## 🔧 Utilities
-pnpm clean            # Clean build artifacts
-pnpm install:web      # Install frontend deps only
-```
 
 ## 📄 License
 

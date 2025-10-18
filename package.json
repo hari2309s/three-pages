@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "author": "Hariharan Selvaraj",
   "private": true,
-  "description": "Any book. Three pages. Any language.",
+  "description": "Any book. Three pages. Perfectly summarized.",
   "scripts": {
     "dev": "concurrently -k -n api,web -c green,cyan \"cd apps/api && cargo run\" \"cd apps/web && pnpm dev\"",
     "dev:web": "cd apps/web && pnpm dev",
